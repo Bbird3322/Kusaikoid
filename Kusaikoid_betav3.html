@@ -245,31 +245,59 @@ async function generateAudioFromSegments(segmentsData) {
     textarea.rows = 2;
     textarea.value = text;
     textarea.dataset.index = i;
-    textarea.addEventListener('input', () => {
+    textarea.addEventListener('input', async () => {
       segmentsData[i].text = textarea.value.trim();
       regenerateBtn.disabled = false;
       updateChangeNotice();
+      // テキスト変更時もmp3を再取得
+      const newUrl = generateTTSURL(voiceSelect.value, segmentsData[i].text);
+      try {
+        playButton.disabled = true;
+        playButton.textContent = '生成中...';
+        currentBlob = await fetchMP3Blob(newUrl);
+        playButton.textContent = '🔊 再生';
+        playButton.disabled = false;
+      } catch (e) {
+        playButton.textContent = 'エラー';
+        playButton.disabled = true;
+      }
     });
 
     // 操作ボタン群
     const controls = document.createElement('div');
     controls.className = 'segment-controls';
 
+
+    // 再生用Blobを保持
+    let currentBlob = blob;
+
     // 再生ボタン
     const playButton = document.createElement('button');
     playButton.textContent = '🔊 再生';
     playButton.addEventListener('click', () => {
-      const audio = new Audio(URL.createObjectURL(blob));
+      const audio = new Audio(URL.createObjectURL(currentBlob));
       audio.play();
     });
 
     // 声選択
     const voiceSelect = defaultVoiceSelect.cloneNode(true);
     voiceSelect.value = vid;
-    voiceSelect.addEventListener('change', () => {
+    voiceSelect.addEventListener('change', async () => {
       segmentsData[i].vid = voiceSelect.value;
       regenerateBtn.disabled = false;
       updateChangeNotice();
+      // 新しい声でmp3を再取得
+      const newUrl = generateTTSURL(voiceSelect.value, segmentsData[i].text);
+      try {
+        playButton.disabled = true;
+        playButton.textContent = '生成中...';
+        currentBlob = await fetchMP3Blob(newUrl);
+        playButton.textContent = '🔊 再生';
+        playButton.disabled = false;
+      } catch (e) {
+        playButton.textContent = 'エラー';
+        playButton.disabled = true;
+      }
     });
 
 
