@@ -229,18 +229,24 @@ async function generateAudioFromSegments(segmentsData) {
   downloadBtn.disabled = true;
 
   const mergedBlobs = [];
-
-  // 各セグメントごとに音声生成
+  // 7～10回のランダムな回数ごとに5～10秒ランダム待機
+  let ttsCount = 0;
+  let ttsLimit = Math.floor(Math.random() * 4) + 7; // 7～10
   for (let i = 0; i < segmentsData.length; i++) {
     const { text, vid } = segmentsData[i];
     const url = generateTTSURL(vid, text);
     const blob = await fetchMP3Blob(url);
     mergedBlobs.push(blob);
+    ttsCount++;
+    if (ttsCount >= ttsLimit) {
+      const waitSec = Math.floor(Math.random() * 6) + 5; // 5～10秒
+      await new Promise(res => setTimeout(res, waitSec * 1000));
+      ttsCount = 0;
+      ttsLimit = Math.floor(Math.random() * 4) + 7;
+    }
 
     // セグメントUI生成
     const div = document.createElement('div');
-
-    // テキスト編集欄
     const textarea = document.createElement('textarea');
     textarea.rows = 2;
     textarea.value = text;
@@ -262,25 +268,17 @@ async function generateAudioFromSegments(segmentsData) {
         playButton.disabled = true;
       }
     });
-
-    // 操作ボタン群
     const controls = document.createElement('div');
     controls.className = 'segment-controls';
-
-
-    // 再生用Blobを保持
     let currentBlob = blob;
-
-    // 再生ボタン
     const playButton = document.createElement('button');
     playButton.textContent = '🔊 再生';
     playButton.addEventListener('click', () => {
       const audio = new Audio(URL.createObjectURL(currentBlob));
       audio.play();
     });
-
-    // 声選択
     const voiceSelect = defaultVoiceSelect.cloneNode(true);
+    voiceSelect.removeAttribute('id'); // 重複IDを防ぐ
     voiceSelect.value = vid;
     voiceSelect.addEventListener('change', async () => {
       segmentsData[i].vid = voiceSelect.value;
@@ -299,9 +297,6 @@ async function generateAudioFromSegments(segmentsData) {
         playButton.disabled = true;
       }
     });
-
-
-    // 削除ボタン
     const deleteButton = document.createElement('button');
     deleteButton.textContent = '🗑️';
     deleteButton.addEventListener('click', async () => {
@@ -310,9 +305,6 @@ async function generateAudioFromSegments(segmentsData) {
       updateChangeNotice();
       await generateAudioFromSegments(segmentsData);
     });
-
-
-    // 上に挿入
     const insertAboveButton = document.createElement('button');
     insertAboveButton.textContent = '＋上';
     insertAboveButton.addEventListener('click', async () => {
@@ -321,8 +313,6 @@ async function generateAudioFromSegments(segmentsData) {
       updateChangeNotice();
       await generateAudioFromSegments(segmentsData);
     });
-
-    // 下に挿入
     const insertBelowButton = document.createElement('button');
     insertBelowButton.textContent = '＋下';
     insertBelowButton.addEventListener('click', async () => {
@@ -331,14 +321,11 @@ async function generateAudioFromSegments(segmentsData) {
       updateChangeNotice();
       await generateAudioFromSegments(segmentsData);
     });
-
-    // ボタンをまとめて追加
     controls.appendChild(playButton);
     controls.appendChild(voiceSelect);
     controls.appendChild(deleteButton);
     controls.appendChild(insertAboveButton);
     controls.appendChild(insertBelowButton);
-
     div.appendChild(textarea);
     div.appendChild(controls);
     segmentsAudioList.appendChild(div);
