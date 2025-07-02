@@ -2,8 +2,101 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Kusaikoid(仮)</title>
+  <title>KUSAIKOID(仮)</title>
   <style>
+    /* 右サイドバーのサブタブ（設定内） */
+    #settingSubTabs {
+      display: flex;
+      border-bottom: 1px solid #eee;
+      margin-bottom: 1em;
+      margin-top: 0.5em;
+    }
+    .settingSubTabBtn {
+      flex: 1;
+      padding: 0.5em 0;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: #666;
+      font-size: 0.98em;
+      cursor: pointer;
+      transition: border-bottom 0.2s, color 0.2s;
+    }
+    .settingSubTabBtn.active {
+      border-bottom: 2px solid #007bff;
+      color: #007bff;
+      font-weight: bold;
+      background: #f0f8ff;
+    }
+    .settingSubTabContent { display: none; }
+    .settingSubTabContent.active { display: block; }
+    /* 右サイドバーのタブUI */
+    #rightSidebarTabs {
+      display: flex;
+      border-bottom: 1px solid #ddd;
+      margin-bottom: 1em;
+    }
+    .rightSidebarTabBtn {
+      flex: 1;
+      padding: 0.7em 0;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: #555;
+      font-size: 1em;
+      cursor: pointer;
+      transition: border-bottom 0.2s, color 0.2s;
+    }
+    .rightSidebarTabBtn.active {
+      border-bottom: 2px solid #007bff;
+      color: #007bff;
+      font-weight: bold;
+      background: #f0f8ff;
+    }
+    .rightSidebarTabContent {
+      display: none;
+    }
+    .rightSidebarTabContent.active {
+      display: block;
+    }
+    /* 右サイドバー用 */
+    #rightSidebarToggle {
+      position: fixed;
+      bottom: 2em;
+      right: 2em;
+      width: 56px;
+      height: 56px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 1100;
+      border: none;
+      transition: background 0.2s;
+    }
+    #rightSidebarToggle:hover {
+      background: #f0f0f0;
+    }
+    #rightSidebar {
+      width: 320px;
+      background: #f8f8f8;
+      padding: 1em;
+      box-shadow: -2px 0 5px rgba(0,0,0,0.18);
+      transition: transform 0.3s;
+      overflow-y: auto;
+      position: fixed;
+      right: 0;
+      top: 0;
+      height: 100vh;
+      z-index: 1099;
+      transform: translateX(100%);
+    }
+    #rightSidebar.open {
+      transform: translateX(0);
+    }
     body {
       font-family: sans-serif;
       margin: 0;
@@ -111,6 +204,69 @@
 </head>
 <body>
 
+  <!-- 右下の丸い歯車ボタン　-->
+  <button id="rightSidebarToggle" title="設定/詳細" aria-label="設定">
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+      <circle cx="16" cy="16" r="16" fill="#fff"/>
+      <g stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="16" cy="16" r="6"/>
+        <path d="M16 4v4M16 24v4M4 16h4M24 16h4M8.93 8.93l2.83 2.83M20.24 20.24l2.83 2.83M8.93 23.07l2.83-2.83M20.24 11.76l2.83-2.83"/>
+      </g>
+    </svg>
+  </button>
+
+  <!-- 右サイドバー本体 -->
+  <div id="rightSidebar">
+    <div id="rightSidebarTabs">
+      <button class="rightSidebarTabBtn active" data-tab="desc">説明</button>
+      <button class="rightSidebarTabBtn" data-tab="setting">設定</button>
+    </div>
+    <div id="rightSidebarTabContents">
+      <div class="rightSidebarTabContent active" data-tab="desc">
+        <h3 style="margin-top:0">KUSAIKOID ver.beta3-4</h3>
+        <div style="color:#555; font-size:0.95em; margin-bottom:1em;">
+          ・テキストを文ごとに分割し、各文ごとに声や内容を編集できます。<br>
+          ・「＋上」「＋下」で文を追加、「🗑️」で削除できます。<br>
+          ・編集後は「編集後のMP3を再生成」ボタンで音声を再取得してください。<br>
+          ・サイドバーは≡ボタン、右下⚙ボタンで開閉できます。
+        </div>
+        <ul style="color:#666; font-size:0.95em;">
+          <li>今後：カスタムモデル登録、音声合成の詳細設定などをここに追加可能</li>
+          <li>UI/UXの追加機能やヘルプも配置できます</li>
+        </ul>
+      </div>
+      <div class="rightSidebarTabContent" data-tab="setting">
+        <h3 style="margin-top:0">設定</h3>
+        <div id="settingSubTabs">
+          <button class="settingSubTabBtn active" data-subtab="main">基本</button>
+          <button class="settingSubTabBtn" data-subtab="select">選択</button>
+        </div>
+        <div id="settingSubTabContents">
+          <div class="settingSubTabContent active" data-subtab="main">
+            <div style="color:#555; font-size:0.95em;">ここに今後、詳細な設定項目やカスタマイズ機能を追加できます。</div>
+            <ul style="color:#666; font-size:0.95em;">
+              <li>例：カスタム音声モデルの登録</li>
+              <li>例：音声合成のパラメータ調整</li>
+            </ul>
+          </div>
+          <div class="settingSubTabContent" data-subtab="select">
+            <div style="color:#555; font-size:0.95em; margin-bottom:0.7em;">選択機能</div>
+            <label style="display:block; margin-bottom:0.5em;">
+              <input type="checkbox" id="filterVoiceCheckbox"> 特定のVID（声ID）のみ表示
+            </label>
+            <select id="voiceTypeSelect" style="min-width:160px; margin-bottom:0.7em;"></select>
+            <br>
+            <label style="display:block; margin-bottom:0.5em;">
+              <input type="checkbox" id="findQuoteCheckbox"> 「」を含む文だけ抽出
+            </label>
+            <button id="applySelectionFilterBtn" style="margin-top:0.5em;">抽出/解除</button>
+            <div id="selectionFilterInfo" style="color:#888; font-size:0.92em; margin-top:0.7em;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="sidebarToggle">≡ 入力</div>
   <!-- サイドバー位置切替ボタンは不要なので削除 -->
 
@@ -148,6 +304,112 @@
   </div>
 
   <script>
+
+    // ====== 設定タブ内サブタブ切り替え ======
+    const settingSubTabBtns = document.querySelectorAll('.settingSubTabBtn');
+    const settingSubTabContents = document.querySelectorAll('.settingSubTabContent');
+    settingSubTabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        settingSubTabBtns.forEach(b => b.classList.remove('active'));
+        settingSubTabContents.forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        const subtab = btn.getAttribute('data-subtab');
+        document.querySelector('.settingSubTabContent[data-subtab="' + subtab + '"]').classList.add('active');
+      });
+    });
+
+    // ====== 選択機能ロジック ======
+    const filterVoiceCheckbox = document.getElementById('filterVoiceCheckbox');
+    const voiceTypeSelect = document.getElementById('voiceTypeSelect');
+    const findQuoteCheckbox = document.getElementById('findQuoteCheckbox');
+    const applySelectionFilterBtn = document.getElementById('applySelectionFilterBtn');
+    const selectionFilterInfo = document.getElementById('selectionFilterInfo');
+    let selectionFilterActive = false;
+    let originalSegmentsBackup = null;
+
+    // ====== VIDリストを自動生成 ======
+    function updateVoiceTypeSelectOptions() {
+      // currentSegmentsからVID一覧を抽出
+      const vids = Array.from(new Set(currentSegments.map(seg => seg.vid)));
+      // 既知のVIDとラベル（必要なら拡張）
+      const vidLabelMap = {
+        '2': '拓也さん', '3': 'MISAKI', '4': 'SAYAKA', '5': 'HIKARI', '6': 'マネージャー', '7': 'RYO', '8': 'レオ'
+      };
+      let html = '<option value="all">すべて</option>';
+      vids.forEach(vid => {
+        const label = vidLabelMap[vid] ? vidLabelMap[vid] + ` (VID:${vid})` : `VID:${vid}`;
+        html += `<option value="${vid}">${label}</option>`;
+      });
+      voiceTypeSelect.innerHTML = html;
+    }
+
+    // 初期化・セグメント変更時にも呼ぶ
+    window.addEventListener('DOMContentLoaded', updateVoiceTypeSelectOptions);
+    // セグメントUI再描画時にも呼ぶ
+    const origRenderSegmentsUI = renderSegmentsUI;
+    renderSegmentsUI = function(segmentsData) {
+      origRenderSegmentsUI(segmentsData);
+      updateVoiceTypeSelectOptions();
+    };
+
+    applySelectionFilterBtn.addEventListener('click', () => {
+      if (!selectionFilterActive) {
+        // 抽出実行
+        originalSegmentsBackup = currentSegments.map(seg => ({...seg}));
+        let filtered = currentSegments;
+        // VIDフィルタ
+        if (filterVoiceCheckbox.checked && voiceTypeSelect.value !== 'all') {
+          filtered = filtered.filter(seg => seg.vid === voiceTypeSelect.value);
+        }
+        // 「」フィルタ
+        if (findQuoteCheckbox.checked) {
+          filtered = filtered.filter(seg => /「.*?」/.test(seg.text));
+        }
+        currentSegments = filtered;
+        renderSegmentsUI(currentSegments);
+        selectionFilterActive = true;
+        selectionFilterInfo.textContent = `抽出中: ${currentSegments.length}件。解除するには再度このボタンを押してください。`;
+      } else {
+        // 解除
+        if (originalSegmentsBackup) {
+          currentSegments = originalSegmentsBackup;
+          renderSegmentsUI(currentSegments);
+        }
+        selectionFilterActive = false;
+        selectionFilterInfo.textContent = '';
+      }
+    });
+
+    // ====== 右サイドバーのタブ切り替え ======
+    const rightSidebarTabBtns = document.querySelectorAll('.rightSidebarTabBtn');
+    const rightSidebarTabContents = document.querySelectorAll('.rightSidebarTabContent');
+    rightSidebarTabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        rightSidebarTabBtns.forEach(b => b.classList.remove('active'));
+        rightSidebarTabContents.forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.getAttribute('data-tab');
+        document.querySelector('.rightSidebarTabContent[data-tab="' + tab + '"]').classList.add('active');
+      });
+    });
+
+    // ====== 右サイドバー開閉 ======
+    const rightSidebar = document.getElementById('rightSidebar');
+    const rightSidebarToggle = document.getElementById('rightSidebarToggle');
+    rightSidebarToggle.addEventListener('click', () => {
+      rightSidebar.classList.toggle('open');
+    });
+    // サイドバー外クリックで閉じる（オプション）
+    document.addEventListener('click', (e) => {
+      if (
+        rightSidebar.classList.contains('open') &&
+        !rightSidebar.contains(e.target) &&
+        e.target !== rightSidebarToggle &&
+        !rightSidebarToggle.contains(e.target)
+      ) {
+        rightSidebar.classList.remove('open');
+      }
+    });
 
     // ====== DOM要素取得 ======
     const generateBtn = document.getElementById('generateBtn'); // MP3生成ボタン
@@ -437,8 +699,10 @@ generateBtn.addEventListener('click', async () => {
   const segments = splitTextBySentence(rawText).map(txt => ({ text: txt, vid: defaultVid }));
   currentSegments = segments;
   renderSegmentsUI(currentSegments); // まずUIのみ即時描画
-  regenerateBtn.disabled = false;
+  regenerateBtn.disabled = true; // 初回生成中は再生成ボタンを無効化
   updateChangeNotice();
+  // すぐ統合MP3も生成
+  await generateAudioFromSegments(currentSegments);
 });
 
 // ====== 再生成ボタン ======
