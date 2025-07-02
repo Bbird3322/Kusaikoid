@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>Kusaikoid(仮)</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      display: flex;
+      height: 100vh;
+      align-items: flex-start;
+    }
+    #sidebarToggle {
+      position: fixed;
+      top: 0.5em;
+      left: 0;
+      background: #333;
+      color: white;
+      padding: 0.5em 1em;
+      cursor: pointer;
+      z-index: 1001;
+    }
+    #sidebar {
+      width: 320px;
+      background: #f0f0f0;
+      padding: 1em;
+      box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+      transition: transform 0.3s ease-in-out;
+      overflow-y: auto;
+      position: fixed;
+      left: 0;
+      top: 0;
+      height: 100vh;
+      z-index: 1000;
+    }
+    #sidebar.bottom {
+      /* 下表示は無効化（常に左固定）*/
+    }
+    #sidebar.closed {
+      transform: translateX(-100%);
+    }
+    #main {
+      flex: 1;
+      padding: 2em;
+      overflow-y: auto;
+      margin-left: 335px; /* サイドバーの幅分だけ右にずらす */
+    }
+    textarea, select {
+      margin-bottom: 0.5em;
+      padding: 0.5em;
+    }
+    textarea {
+      width: 100%;
+    }
+    select {
+      min-width: 150px;
+    }
+    button {
+      padding: 0.5em 1em;
+      margin-right: 0.5em;
+      border: none;
+      border-radius: 4px;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+
+    /* セグメント操作ボタン用の白色スタイル */
+    #segmentsAudioList .segment-controls button {
+      background-color: #fff;
+      color: #333;
+      border: 1px solid #bbb;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      background-color: #aaa;
+    }
+    #regenerateBtn {
+      background-color: #d9534f;
+    }
+    #segmentsAudioList > div {
+      margin-bottom: 1em;
+    }
+    #segmentsAudioList .segment-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5em;
+      margin-top: 0.5em;
+    }
+    #segmentsAudioList textarea {
+      width: 100%;
+      resize: vertical;
+    }
+    .sectionTitle {
+      margin-top: 1em;
+      font-weight: bold;
+    }
+    #changeNotice {
+      color: #d9534f;
+      font-weight: bold;
+      margin-top: 0.5em;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="sidebarToggle">≡ 入力</div>
+  <!-- サイドバー位置切替ボタンは不要なので削除 -->
+
+  <div id="sidebar" class="">
+    <br>
+    <h2>音声生成</h2>
+    <label for="voiceSelect">デフォルトの声:</label>
+    <select id="voiceSelect">
+      <option value="2">拓也さん / CV.SHOW</option>
+      <option value="3">MISAKI</option>
+      <option value="4">SAYAKA</option>
+      <option value="5">HIKARI</option>
+      <option value="6">マネージャー / CV.HARUKA</option>
+      <option value="7">RYO</option>
+      <option value="8">レオ / CV.TAKERU</option>
+    </select>
+    <br>
+    <label for="textInput">テキストを入力:</label>
+    <textarea id="textInput" rows="10">「クリスマス・イブは３日間くらいあるといいんだよね。だってさぁ、イヴの日とかに一人のオンナの子とかいっぱいいてかわいそうじゃん！」なんて言っていながら、オレにとっての本命くんがはたしてイブに呼んでくれるかどうかやっぱり気になる。本命クンは決して絶対に約束なんかしてくれない。だからオレはグレまくってウリなんかやっている。それに絶対決して「好きだ」なんて言ってくれない。単なる「ペット」として愛してくれているだけだ。</textarea>
+    <div id="charCount">0文字</div>
+
+    <button id="generateBtn">MP3を生成</button>
+    <button id="regenerateBtn" disabled>編集後のMP3を再生成</button>
+
+    <div class="sectionTitle">統合音声</div>
+    <div id="result"></div>
+    <button id="downloadBtn" disabled>MP3をダウンロード</button>
+    <div id="changeNotice">変更点が更新されていません。</div>
+  </div>
+
+  <div id="main">
+    <h1>Kusaikoid(仮)</h1>
+    <div class="sectionTitle">単文別音声</div>
+    <div id="segmentsAudioList"></div>
+  </div>
+
+  <script>
+    const generateBtn = document.getElementById('generateBtn');
+    const regenerateBtn = document.getElementById('regenerateBtn');
+    const textInput = document.getElementById('textInput');
+    const charCount = document.getElementById('charCount');
+    const resultDiv = document.getElementById('result');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const segmentsAudioList = document.getElementById('segmentsAudioList');
+    const sidebar = document.getElementById('sidebar');
+    const toggle = document.getElementById('sidebarToggle');
+    const defaultVoiceSelect = document.getElementById("voiceSelect");
+    const changeNotice = document.getElementById('changeNotice');
+
+    let finalBlobURL = null;
+    let currentSegments = [];
+
+
+    toggle.addEventListener('click', () => {
+      sidebar.classList.toggle('closed');
+    });
+
+
+
+    textInput.addEventListener('input', () => {
+          charCount.textContent = `${textInput.value.length} 文字`;
+        });
+    charCount.textContent = `${textInput.value.length} 文字`;
+
+    function updateChangeNotice() {
+        if (!regenerateBtn.disabled) {
+    changeNotice.style.display = 'block';
+  } else {
+        changeNotice.style.display = 'none';
+        }
+    }
+
+
+    /**
+     * TTS（テキスト読み上げ）用のURLを生成する
+     * @param {string} vid - 声のID
+     * @param {string} text - 読み上げるテキスト
+     * @returns {string} - 生成されたTTSリクエストURL
+     */
+    function generateTTSURL(vid, text) {
+        // 特殊文字を置換
+        const sanitized = text.replace(/&/g, 'アンド').replace(/=/g, 'イコール');
+        return `https://cache-a.oddcast.com/tts/genC.php?EID=3&LID=12&VID=${vid}&TXT=${encodeURIComponent(sanitized)}&EXT=mp3&FNAME=&ACC=15679&SceneID=2646118&HTTP_ERR=`;
+    }
+
+    /**
+     * テキストを文ごとに分割する（。！？で区切る）
+     * @param {string} text - 入力テキスト
+     * @returns {string[]} - 文ごとの配列
+     */
+    function splitTextBySentence(text) {
+        const sentences = text.match(/[^。！？\r\n]*[。！？]?/g) || [];
+        return sentences.map(s => s.trim()).filter(Boolean);
+    }
+
+    /**
+     * 指定URLからMP3ファイル（Blob）を取得する
+     * @param {string} url - MP3ファイルのURL
+     * @returns {Promise<Blob>} - 取得したMP3のBlob
+     */
+    async function fetchMP3Blob(url) {
+        const res = await fetch(url, { mode: 'cors' });
+        if (!res.ok) throw new Error("音声ファイル取得に失敗");
+        return await res.blob();
+    }
+
+
+/**
+ * セグメントごとに音声を生成し、UIに反映する
+ * @param {Array<{text: string, vid: string}>} segmentsData - 各セグメントのテキストと声ID
+ */
+async function generateAudioFromSegments(segmentsData) {
+  // UI初期化
+  resultDiv.textContent = '生成中...';
+  segmentsAudioList.innerHTML = '';
+  if (finalBlobURL) {
+    URL.revokeObjectURL(finalBlobURL);
+    finalBlobURL = null;
+  }
+  downloadBtn.disabled = true;
+
+  const mergedBlobs = [];
+
+  // 各セグメントごとに音声生成
+  for (let i = 0; i < segmentsData.length; i++) {
+    const { text, vid } = segmentsData[i];
+    const url = generateTTSURL(vid, text);
+    const blob = await fetchMP3Blob(url);
+    mergedBlobs.push(blob);
+
+    // セグメントUI生成
+    const div = document.createElement('div');
+
+    // テキスト編集欄
+    const textarea = document.createElement('textarea');
+    textarea.rows = 2;
+    textarea.value = text;
+    textarea.dataset.index = i;
+    textarea.addEventListener('input', () => {
+      segmentsData[i].text = textarea.value.trim();
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+    });
+
+    // 操作ボタン群
+    const controls = document.createElement('div');
+    controls.className = 'segment-controls';
+
+    // 再生ボタン
+    const playButton = document.createElement('button');
+    playButton.textContent = '🔊 再生';
+    playButton.addEventListener('click', () => {
+      const audio = new Audio(URL.createObjectURL(blob));
+      audio.play();
+    });
+
+    // 声選択
+    const voiceSelect = defaultVoiceSelect.cloneNode(true);
+    voiceSelect.value = vid;
+    voiceSelect.addEventListener('change', () => {
+      segmentsData[i].vid = voiceSelect.value;
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+    });
+
+
+    // 削除ボタン
+    const deleteButton = document.createElement('button');
+    deleteButton.textContent = '🗑️';
+    deleteButton.addEventListener('click', async () => {
+      segmentsData.splice(i, 1);
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      await generateAudioFromSegments(segmentsData);
+    });
+
+
+    // 上に挿入
+    const insertAboveButton = document.createElement('button');
+    insertAboveButton.textContent = '＋上';
+    insertAboveButton.addEventListener('click', async () => {
+      segmentsData.splice(i, 0, { text: 'テキストを挿入。', vid });
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      await generateAudioFromSegments(segmentsData);
+    });
+
+    // 下に挿入
+    const insertBelowButton = document.createElement('button');
+    insertBelowButton.textContent = '＋下';
+    insertBelowButton.addEventListener('click', async () => {
+      segmentsData.splice(i + 1, 0, { text: 'テキストを挿入。', vid });
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      await generateAudioFromSegments(segmentsData);
+    });
+
+    // ボタンをまとめて追加
+    controls.appendChild(playButton);
+    controls.appendChild(voiceSelect);
+    controls.appendChild(deleteButton);
+    controls.appendChild(insertAboveButton);
+    controls.appendChild(insertBelowButton);
+
+    div.appendChild(textarea);
+    div.appendChild(controls);
+    segmentsAudioList.appendChild(div);
+  }
+
+  // 全セグメントの音声を結合し、再生・DL用にUI反映
+  finalBlobURL = URL.createObjectURL(new Blob(mergedBlobs, { type: 'audio/mp3' }));
+  resultDiv.textContent = '';
+  const audio = document.createElement('audio');
+  audio.controls = true;
+  audio.src = finalBlobURL;
+  resultDiv.appendChild(audio);
+  downloadBtn.disabled = false;
+  regenerateBtn.disabled = true;
+  updateChangeNotice();
+}
+
+generateBtn.addEventListener('click', async () => {
+  const rawText = textInput.value.trim();
+  const defaultVid = defaultVoiceSelect.value;
+  if (!rawText) {
+    alert("テキストを入力してください");
+    return;
+  }
+
+  const segments = splitTextBySentence(rawText).map(txt => ({ text: txt, vid: defaultVid }));
+  currentSegments = segments;
+  await generateAudioFromSegments(currentSegments);
+  regenerateBtn.disabled = true;
+  updateChangeNotice();
+});
+
+regenerateBtn.addEventListener('click', async () => {
+  await generateAudioFromSegments(currentSegments);
+  regenerateBtn.disabled = true;
+  updateChangeNotice();
+});
+
+downloadBtn.addEventListener('click', () => {
+  if (!finalBlobURL) return;
+  const a = document.createElement('a');
+  a.href = finalBlobURL;
+  a.download = 'merged_audio.mp3';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+});
+  </script>
+</body>
+</html>
