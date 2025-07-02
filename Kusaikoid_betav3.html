@@ -254,11 +254,12 @@
             <label style="display:block; margin-bottom:0.5em;">
               <input type="checkbox" id="filterVoiceCheckbox"> 特定のVID（声ID）のみ表示
             </label>
-            <select id="voiceTypeSelect" style="min-width:160px; margin-bottom:0.7em;"></select>
+            <div id="voiceTypeSelectWrapper" style="margin-bottom:0.7em;">
+              <select id="voiceTypeSelect" style="min-width:160px;"></select>
+            </div>
             <br>
-            <label style="display:block; margin-bottom:0.5em;">
-              <input type="checkbox" id="findQuoteCheckbox"> 「」を含む文だけ抽出
-            </label>
+            <!-- 「」を含む文だけ抽出フィルター削除 -->
+            <div id="currentVidInfo" style="color:#007bff; font-size:0.98em; margin-bottom:0.3em;"></div>
             <div id="selectionFilterInfo" style="color:#888; font-size:0.92em; margin-top:0.7em;"></div>
           </div>
         </div>
@@ -320,10 +321,19 @@
     // ====== 選択機能ロジック ======
     const filterVoiceCheckbox = document.getElementById('filterVoiceCheckbox');
     const voiceTypeSelect = document.getElementById('voiceTypeSelect');
-    const findQuoteCheckbox = document.getElementById('findQuoteCheckbox');
+    const voiceTypeSelectWrapper = document.getElementById('voiceTypeSelectWrapper');
     const selectionFilterInfo = document.getElementById('selectionFilterInfo');
+    const currentVidInfo = document.getElementById('currentVidInfo');
     let selectionFilterActive = false;
-    let selectionFilter = null; // {vid, quote}
+    let selectionFilter = null; // {vid}
+
+    // チェックボックスでセレクト表示切替
+    function updateVoiceTypeSelectVisibility() {
+      voiceTypeSelectWrapper.style.display = filterVoiceCheckbox.checked ? '' : 'none';
+    }
+    filterVoiceCheckbox.addEventListener('change', updateVoiceTypeSelectVisibility);
+    // 初期表示
+    updateVoiceTypeSelectVisibility();
 
     // ====== VIDリストを自動生成 ======
     function updateVoiceTypeSelectOptions() {
@@ -344,40 +354,123 @@
     // 初期化・セグメント変更時にも呼ぶ
     window.addEventListener('DOMContentLoaded', updateVoiceTypeSelectOptions);
     // セグメントUI再描画時にも呼ぶ
-    const origRenderSegmentsUI = renderSegmentsUI;
-    renderSegmentsUI = function(segmentsData) {
-      origRenderSegmentsUI(segmentsData);
-      updateVoiceTypeSelectOptions();
-    };
+
+const origRenderSegmentsUI = renderSegmentsUI;
+renderSegmentsUI = function(segmentsData) {
+  // 先にVIDセレクトを更新（新規VIDが追加された場合も即反映）
+  updateVoiceTypeSelectOptions();
+  // フィルタ有効時は合致しないものを非表示
+  if (selectionFilterActive && selectionFilter) {
+    segmentsAudioList.innerHTML = '';
+    segmentsData.forEach((seg, i) => {
+      let match = true;
+      if (selectionFilter.vid) match = match && seg.vid === selectionFilter.vid;
+      // if (selectionFilter.quote) match = match && /「.*?」/.test(seg.text); // quoteフィルタ削除済み
+      if (!match) return; // 合致しないものはDOM生成しない
+      // --- 以下は通常のUI生成 ---
+      const div = document.createElement('div');
+      const textarea = document.createElement('textarea');
+      textarea.rows = 2;
+      textarea.value = seg.text;
+      textarea.dataset.index = i;
+      // 再生ボタンは常に無効化
+      const controls = document.createElement('div');
+      controls.className = 'segment-controls';
+      const playButton = document.createElement('button');
+      playButton.textContent = '🔊 再生';
+      playButton.disabled = true;
+      // 声選択
+      const voiceSelect = defaultVoiceSelect.cloneNode(true);
+      voiceSelect.removeAttribute('id');
+      voiceSelect.value = seg.vid;
+      voiceSelect.onchange = () => {
+        seg.vid = voiceSelect.value;
+        regenerateBtn.disabled = false;
+        updateChangeNotice();
+        // フィルタが有効なら解除する
+        if (selectionFilterActive) {
+          filterVoiceCheckbox.checked = false;
+          updateSelectionFilter();
+        }
+      };
+      // テキスト編集
+      textarea.oninput = () => {
+        seg.text = textarea.value.trim();
+        regenerateBtn.disabled = false;
+        updateChangeNotice();
+      };
+      // セグメント削除
+      const deleteButton = document.createElement('button');
+      deleteButton.textContent = '🗑️';
+      deleteButton.onclick = () => {
+        segmentsData.splice(i, 1);
+        regenerateBtn.disabled = false;
+        updateChangeNotice();
+        renderSegmentsUI(segmentsData);
+      };
+      // セグメント挿入（上）
+      const insertAboveButton = document.createElement('button');
+      insertAboveButton.textContent = '＋上';
+      insertAboveButton.onclick = () => {
+        segmentsData.splice(i, 0, { text: 'テキストを挿入。', vid: seg.vid });
+        regenerateBtn.disabled = false;
+        updateChangeNotice();
+        renderSegmentsUI(segmentsData);
+      };
+      // セグメント挿入（下）
+      const insertBelowButton = document.createElement('button');
+      insertBelowButton.textContent = '＋下';
+      insertBelowButton.onclick = () => {
+        segmentsData.splice(i + 1, 0, { text: 'テキストを挿入。', vid: seg.vid });
+        regenerateBtn.disabled = false;
+        updateChangeNotice();
+        renderSegmentsUI(segmentsData);
+      };
+      controls.append(playButton, voiceSelect, deleteButton, insertAboveButton, insertBelowButton);
+      div.append(textarea, controls);
+      segmentsAudioList.appendChild(div);
+    });
+    // updateVoiceTypeSelectOptions(); // 先頭で呼ぶので不要
+  } else {
+    origRenderSegmentsUI(segmentsData);
+    updateVoiceTypeSelectOptions();
+  }
+};
 
 
-    function updateSelectionFilter() {
-      // チェックボックスやセレクトの状態からフィルタ条件を決定
-      const vid = (filterVoiceCheckbox.checked && voiceTypeSelect.value !== 'all') ? voiceTypeSelect.value : null;
-      const quote = findQuoteCheckbox.checked;
-      if (vid || quote) {
-        selectionFilter = { vid, quote };
-        selectionFilterActive = true;
-        renderSegmentsUI(currentSegments);
-        // 件数表示
-        let matchCount = currentSegments.filter(seg => {
-          let ok = true;
-          if (vid) ok = ok && seg.vid === vid;
-          if (quote) ok = ok && /「.*?」/.test(seg.text);
-          return ok;
-        }).length;
-        selectionFilterInfo.textContent = `抽出中: ${matchCount}件。`;
-      } else {
-        selectionFilter = null;
-        selectionFilterActive = false;
-        renderSegmentsUI(currentSegments);
-        selectionFilterInfo.textContent = '';
-      }
-    }
+function updateSelectionFilter() {
+  // VIDラベル辞書
+  const vidLabelMap = {
+    '2': '拓也さん', '3': 'MISAKI', '4': 'SAYAKA', '5': 'HIKARI', '6': 'マネージャー', '7': 'RYO', '8': 'レオ'
+  };
+  // チェックボックスやセレクトの状態からフィルタ条件を決定
+  const vid = (filterVoiceCheckbox.checked && voiceTypeSelect.value !== 'all') ? voiceTypeSelect.value : null;
+  // quoteフィルター削除
+  // VID表示
+  if (vid) {
+    const label = vidLabelMap[vid] ? vidLabelMap[vid] + ` (VID:${vid})` : `VID:${vid}`;
+    currentVidInfo.textContent = `選択中の声: ${label}`;
+  } else {
+    currentVidInfo.textContent = '';
+  }
+  if (vid) {
+    selectionFilter = { vid };
+    selectionFilterActive = true;
+    renderSegmentsUI(currentSegments);
+    // 件数表示
+    let matchCount = currentSegments.filter(seg => seg.vid === vid).length;
+    selectionFilterInfo.textContent = `抽出中: ${matchCount}件。`;
+  } else {
+    selectionFilter = null;
+    selectionFilterActive = false;
+    renderSegmentsUI(currentSegments);
+    selectionFilterInfo.textContent = '';
+  }
+}
 
-    filterVoiceCheckbox.addEventListener('change', updateSelectionFilter);
-    voiceTypeSelect.addEventListener('change', updateSelectionFilter);
-    findQuoteCheckbox.addEventListener('change', updateSelectionFilter);
+filterVoiceCheckbox.addEventListener('change', updateSelectionFilter);
+voiceTypeSelect.addEventListener('change', updateSelectionFilter);
+// findQuoteCheckbox 削除
 
     // ====== 右サイドバーのタブ切り替え ======
     const rightSidebarTabBtns = document.querySelectorAll('.rightSidebarTabBtn');
