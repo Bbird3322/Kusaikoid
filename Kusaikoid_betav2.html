@@ -29,8 +29,8 @@
   </select>
 
   <label for="textInput">テキストを入力:</label>
-  <textarea id="textInput" rows="5" maxlength="1000">拓也の射精3000円。</textarea>
-  <div id="charCount">0 / 1000文字</div>
+  <textarea id="textInput" rows="5">拓也の射精3000円。</textarea>
+  <div id="charCount">0文字</div>
 
   <div>
     <button id="generateBtn">MP3を生成</button>
@@ -52,9 +52,9 @@
     let finalBlobURL = null;
 
     textInput.addEventListener('input', () => {
-      charCount.textContent = `${textInput.value.length} / 1000文字`;
+      charCount.textContent = `${textInput.value.length}文字`;
     });
-    charCount.textContent = `${textInput.value.length} / 1000文字`;
+    charCount.textContent = `${textInput.value.length}文字`;
 
     function generateTTSURL(vid, text) {
       const sanitized = text.replace(/&/g, 'アンド').replace(/=/g, 'イコール');
