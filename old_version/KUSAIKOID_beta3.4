@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>KUSAIKOID(仮)</title>
+  <style>
+    /* 右サイドバーのサブタブ（設定内） */
+    #settingSubTabs {
+      display: flex;
+      border-bottom: 1px solid #eee;
+      margin-bottom: 1em;
+      margin-top: 0.5em;
+    }
+    .settingSubTabBtn {
+      flex: 1;
+      padding: 0.5em 0;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: #666;
+      font-size: 0.98em;
+      cursor: pointer;
+      transition: border-bottom 0.2s, color 0.2s;
+    }
+    .settingSubTabBtn.active {
+      border-bottom: 2px solid #007bff;
+      color: #007bff;
+      font-weight: bold;
+      background: #f0f8ff;
+    }
+    .settingSubTabContent { display: none; }
+    .settingSubTabContent.active { display: block; }
+    /* 右サイドバーのタブUI */
+    #rightSidebarTabs {
+      display: flex;
+      border-bottom: 1px solid #ddd;
+      margin-bottom: 1em;
+    }
+    .rightSidebarTabBtn {
+      flex: 1;
+      padding: 0.7em 0;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: #555;
+      font-size: 1em;
+      cursor: pointer;
+      transition: border-bottom 0.2s, color 0.2s;
+    }
+    .rightSidebarTabBtn.active {
+      border-bottom: 2px solid #007bff;
+      color: #007bff;
+      font-weight: bold;
+      background: #f0f8ff;
+    }
+    .rightSidebarTabContent {
+      display: none;
+    }
+    .rightSidebarTabContent.active {
+      display: block;
+    }
+    /* 右サイドバー用 */
+    #rightSidebarToggle {
+      position: fixed;
+      bottom: 2em;
+      right: 2em;
+      width: 56px;
+      height: 56px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 1100;
+      border: none;
+      transition: background 0.2s;
+    }
+    #rightSidebarToggle:hover {
+      background: #f0f0f0;
+    }
+    #rightSidebar {
+      width: 320px;
+      background: #f8f8f8;
+      padding: 1em;
+      box-shadow: -2px 0 5px rgba(0,0,0,0.18);
+      transition: transform 0.3s;
+      overflow-y: auto;
+      position: fixed;
+      right: 0;
+      top: 0;
+      height: 100vh;
+      z-index: 1099;
+      transform: translateX(100%);
+    }
+    #rightSidebar.open {
+      transform: translateX(0);
+    }
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      display: flex;
+      height: 100vh;
+      align-items: flex-start;
+    }
+    #sidebarToggle {
+      position: fixed;
+      top: 0.5em;
+      left: 0;
+      background: #333;
+      color: white;
+      padding: 0.5em 1em;
+      cursor: pointer;
+      z-index: 1001;
+    }
+    #sidebar {
+      width: 320px;
+      background: #f0f0f0;
+      padding: 1em;
+      box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+      transition: transform 0.3s ease-in-out;
+      overflow-y: auto;
+      position: fixed;
+      left: 0;
+      top: 0;
+      height: 100vh;
+      z-index: 1000;
+    }
+    #sidebar.bottom {
+      /* 下表示は無効化（常に左固定）*/
+    }
+    #sidebar.closed {
+      transform: translateX(-100%);
+    }
+    #main {
+      flex: 1;
+      padding: 2em;
+      overflow-y: auto;
+      margin-left: 335px; /* サイドバーの幅分だけ右にずらす（開時） */
+      transition: margin-left 0.3s;
+    }
+    #sidebar.closed ~ #main {
+      margin-left: 0 !important; /* サイドバー閉時は左寄せ */
+    }
+    textarea, select {
+      margin-bottom: 0.5em;
+      padding: 0.5em;
+    }
+    textarea {
+      width: 100%;
+    }
+    select {
+      min-width: 150px;
+    }
+    button {
+      padding: 0.5em 1em;
+      margin-right: 0.5em;
+      border: none;
+      border-radius: 4px;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+
+    /* セグメント操作ボタン用の白色スタイル */
+    #segmentsAudioList .segment-controls button {
+      background-color: #fff;
+      color: #333;
+      border: 1px solid #bbb;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      background-color: #aaa;
+    }
+    #regenerateBtn {
+      background-color: #d9534f;
+    }
+    #segmentsAudioList > div {
+      margin-bottom: 1em;
+    }
+    #segmentsAudioList .segment-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5em;
+      margin-top: 0.5em;
+    }
+    #segmentsAudioList textarea {
+      width: 100%;
+      resize: vertical;
+    }
+    .sectionTitle {
+      margin-top: 1em;
+      font-weight: bold;
+    }
+    #changeNotice {
+      color: #d9534f;
+      font-weight: bold;
+      margin-top: 0.5em;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 右下の丸い歯車ボタン　-->
+  <button id="rightSidebarToggle" title="設定/詳細" aria-label="設定">
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+      <circle cx="16" cy="16" r="16" fill="#fff"/>
+      <g stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="16" cy="16" r="6"/>
+        <path d="M16 4v4M16 24v4M4 16h4M24 16h4M8.93 8.93l2.83 2.83M20.24 20.24l2.83 2.83M8.93 23.07l2.83-2.83M20.24 11.76l2.83-2.83"/>
+      </g>
+    </svg>
+  </button>
+
+  <!-- 右サイドバー本体 -->
+  <div id="rightSidebar">
+    <div id="rightSidebarTabs">
+      <button class="rightSidebarTabBtn active" data-tab="desc">説明</button>
+      <button class="rightSidebarTabBtn" data-tab="setting">設定</button>
+    </div>
+    <div id="rightSidebarTabContents">
+      <div class="rightSidebarTabContent active" data-tab="desc">
+        <h3 style="margin-top:0">KUSAIKOID ver.beta3-4</h3>
+        <div style="color:#555; font-size:0.95em; margin-bottom:1em;">
+          ・テキストを文ごとに分割し、各文ごとに声や内容を編集できます。<br>
+          ・「＋上」「＋下」で文を追加、「🗑️」で削除できます。<br>
+          ・編集後は「編集後のMP3を再生成」ボタンで音声を再取得してください。<br>
+          ・サイドバーは≡ボタン、右下⚙ボタンで開閉できます。
+        </div>
+        <ul style="color:#666; font-size:0.95em;">
+          <li>今後：カスタムモデル登録、音声合成の詳細設定などをここに追加可能</li>
+          <li>UI/UXの追加機能やヘルプも配置できます</li>
+        </ul>
+      </div>
+      <div class="rightSidebarTabContent" data-tab="setting">
+        <h3 style="margin-top:0">設定</h3>
+        <div id="settingSubTabs">
+          <button class="settingSubTabBtn active" data-subtab="main">基本</button>
+          <button class="settingSubTabBtn" data-subtab="select">選択</button>
+        </div>
+        <div id="settingSubTabContents">
+          <div class="settingSubTabContent active" data-subtab="main">
+            <div style="color:#555; font-size:0.95em;">ここに今後、詳細な設定項目やカスタマイズ機能を追加できます。</div>
+            <ul style="color:#666; font-size:0.95em;">
+              <li>例：カスタム音声モデルの登録</li>
+              <li>例：音声合成のパラメータ調整</li>
+            </ul>
+          </div>
+          <div class="settingSubTabContent" data-subtab="select">
+            <div style="color:#555; font-size:0.95em; margin-bottom:0.7em;">選択機能</div>
+            <label style="display:block; margin-bottom:0.5em;">
+              <input type="checkbox" id="filterVoiceCheckbox"> 特定のVID（声ID）のみ表示
+            </label>
+            <div id="voiceTypeSelectWrapper" style="margin-bottom:0.7em;">
+              <select id="voiceTypeSelect" style="min-width:160px;"></select>
+            </div>
+            <br>
+            <!-- 「」を含む文だけ抽出フィルター削除 -->
+            <div id="currentVidInfo" style="color:#007bff; font-size:0.98em; margin-bottom:0.3em;"></div>
+            <div id="selectionFilterInfo" style="color:#888; font-size:0.92em; margin-top:0.7em;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="sidebarToggle">≡ 入力</div>
+  <!-- サイドバー位置切替ボタンは不要なので削除 -->
+
+  <div id="sidebar" class="">
+    <br>
+    <h2>音声生成</h2>
+    <label for="voiceSelect">デフォルトの声:</label>
+    <select id="voiceSelect">
+      <option value="2">拓也さん / CV.SHOW</option>
+      <option value="3">MISAKI</option>
+      <option value="4">SAYAKA</option>
+      <option value="5">HIKARI</option>
+      <option value="6">マネージャー / CV.HARUKA</option>
+      <option value="7">RYO</option>
+      <option value="8">レオ / CV.TAKERU</option>
+    </select>
+    <br>
+    <label for="textInput">テキストを入力:</label>
+    <textarea id="textInput" rows="10">「クリスマス・イブは３日間くらいあるといいんだよね。だってさぁ、イヴの日とかに一人のオンナの子とかいっぱいいてかわいそうじゃん！」なんて言っていながら、オレにとっての本命くんがはたしてイブに呼んでくれるかどうかやっぱり気になる。本命クンは決して絶対に約束なんかしてくれない。だからオレはグレまくってウリなんかやっている。それに絶対決して「好きだ」なんて言ってくれない。単なる「ペット」として愛してくれているだけだ。</textarea>
+    <div id="charCount">0文字</div>
+
+    <button id="generateBtn">MP3を生成</button>
+    <button id="regenerateBtn" disabled>編集後のMP3を再生成</button>
+
+    <div class="sectionTitle">統合音声</div>
+    <div id="result"></div>
+    <button id="downloadBtn" disabled>MP3をダウンロード</button>
+    <div id="changeNotice">変更点が更新されていません。</div>
+  </div>
+
+  <div id="main">
+    <h1>Kusaikoid(仮)</h1>
+    <div class="sectionTitle">単文別音声</div>
+    <div id="segmentsAudioList"></div>
+  </div>
+
+  <script>
+
+    // ====== 設定タブ内サブタブ切り替え ======
+    const settingSubTabBtns = document.querySelectorAll('.settingSubTabBtn');
+    const settingSubTabContents = document.querySelectorAll('.settingSubTabContent');
+    settingSubTabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        settingSubTabBtns.forEach(b => b.classList.remove('active'));
+        settingSubTabContents.forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        const subtab = btn.getAttribute('data-subtab');
+        document.querySelector('.settingSubTabContent[data-subtab="' + subtab + '"]').classList.add('active');
+      });
+    });
+
+    // ====== 選択機能ロジック ======
+    const filterVoiceCheckbox = document.getElementById('filterVoiceCheckbox');
+    const voiceTypeSelect = document.getElementById('voiceTypeSelect');
+    const voiceTypeSelectWrapper = document.getElementById('voiceTypeSelectWrapper');
+    const selectionFilterInfo = document.getElementById('selectionFilterInfo');
+    const currentVidInfo = document.getElementById('currentVidInfo');
+    let selectionFilterActive = false;
+    let selectionFilter = null; // {vid}
+
+    // チェックボックスでセレクト表示切替
+    function updateVoiceTypeSelectVisibility() {
+      voiceTypeSelectWrapper.style.display = filterVoiceCheckbox.checked ? '' : 'none';
+    }
+    filterVoiceCheckbox.addEventListener('change', updateVoiceTypeSelectVisibility);
+    // 初期表示
+    updateVoiceTypeSelectVisibility();
+
+    // ====== VIDリストを自動生成 ======
+    function updateVoiceTypeSelectOptions() {
+      // currentSegmentsからVID一覧を抽出
+      const vids = Array.from(new Set(currentSegments.map(seg => seg.vid)));
+      // 既知のVIDとラベル（必要なら拡張）
+      const vidLabelMap = {
+        '2': '拓也さん', '3': 'MISAKI', '4': 'SAYAKA', '5': 'HIKARI', '6': 'マネージャー', '7': 'RYO', '8': 'レオ'
+      };
+      let html = '<option value="all">すべて</option>';
+      vids.forEach(vid => {
+        const label = vidLabelMap[vid] ? vidLabelMap[vid] + ` (VID:${vid})` : `VID:${vid}`;
+        html += `<option value="${vid}">${label}</option>`;
+      });
+      voiceTypeSelect.innerHTML = html;
+    }
+
+    // 初期化・セグメント変更時にも呼ぶ
+    window.addEventListener('DOMContentLoaded', updateVoiceTypeSelectOptions);
+    // セグメントUI再描画時にも呼ぶ
+
+const origRenderSegmentsUI = renderSegmentsUI;
+renderSegmentsUI = function(segmentsData) {
+  // 先にVIDセレクトを更新（新規VIDが追加された場合も即反映）
+  updateVoiceTypeSelectOptions();
+  // フィルタ有効時は合致しないものを非表示
+  if (selectionFilterActive && selectionFilter) {
+    segmentsAudioList.innerHTML = '';
+    segmentsData.forEach((seg, i) => {
+      let match = true;
+      if (selectionFilter.vid) match = match && seg.vid === selectionFilter.vid;
+      // if (selectionFilter.quote) match = match && /「.*?」/.test(seg.text); // quoteフィルタ削除済み
+      if (!match) return; // 合致しないものはDOM生成しない
+      // --- 以下は通常のUI生成 ---
+      const div = document.createElement('div');
+      const textarea = document.createElement('textarea');
+      textarea.rows = 2;
+      textarea.value = seg.text;
+      textarea.dataset.index = i;
+      // 再生ボタンは常に無効化
+      const controls = document.createElement('div');
+      controls.className = 'segment-controls';
+      const playButton = document.createElement('button');
+      playButton.textContent = '🔊 再生';
+      playButton.disabled = true;
+      // 声選択
+      const voiceSelect = defaultVoiceSelect.cloneNode(true);
+      voiceSelect.removeAttribute('id');
+      voiceSelect.value = seg.vid;
+      voiceSelect.onchange = () => {
+        seg.vid = voiceSelect.value;
+        regenerateBtn.disabled = false;
+        updateChangeNotice();
+        // フィルタが有効なら解除する
+        if (selectionFilterActive) {
+          filterVoiceCheckbox.checked = false;
+          updateSelectionFilter();
+        }
+      };
+      // テキスト編集
+      textarea.oninput = () => {
+        seg.text = textarea.value.trim();
+        regenerateBtn.disabled = false;
+        updateChangeNotice();
+      };
+      // セグメント削除
+      const deleteButton = document.createElement('button');
+      deleteButton.textContent = '🗑️';
+      deleteButton.onclick = () => {
+        segmentsData.splice(i, 1);
+        regenerateBtn.disabled = false;
+        updateChangeNotice();
+        renderSegmentsUI(segmentsData);
+      };
+      // セグメント挿入（上）
+      const insertAboveButton = document.createElement('button');
+      insertAboveButton.textContent = '＋上';
+      insertAboveButton.onclick = () => {
+        segmentsData.splice(i, 0, { text: 'テキストを挿入。', vid: seg.vid });
+        regenerateBtn.disabled = false;
+        updateChangeNotice();
+        renderSegmentsUI(segmentsData);
+      };
+      // セグメント挿入（下）
+      const insertBelowButton = document.createElement('button');
+      insertBelowButton.textContent = '＋下';
+      insertBelowButton.onclick = () => {
+        segmentsData.splice(i + 1, 0, { text: 'テキストを挿入。', vid: seg.vid });
+        regenerateBtn.disabled = false;
+        updateChangeNotice();
+        renderSegmentsUI(segmentsData);
+      };
+      controls.append(playButton, voiceSelect, deleteButton, insertAboveButton, insertBelowButton);
+      div.append(textarea, controls);
+      segmentsAudioList.appendChild(div);
+    });
+    // updateVoiceTypeSelectOptions(); // 先頭で呼ぶので不要
+  } else {
+    origRenderSegmentsUI(segmentsData);
+    updateVoiceTypeSelectOptions();
+  }
+};
+
+
+function updateSelectionFilter() {
+  // VIDラベル辞書
+  const vidLabelMap = {
+    '2': '拓也さん', '3': 'MISAKI', '4': 'SAYAKA', '5': 'HIKARI', '6': 'マネージャー', '7': 'RYO', '8': 'レオ'
+  };
+  // チェックボックスやセレクトの状態からフィルタ条件を決定
+  const vid = (filterVoiceCheckbox.checked && voiceTypeSelect.value !== 'all') ? voiceTypeSelect.value : null;
+  // quoteフィルター削除
+  // VID表示
+  if (vid) {
+    const label = vidLabelMap[vid] ? vidLabelMap[vid] + ` (VID:${vid})` : `VID:${vid}`;
+    currentVidInfo.textContent = `選択中の声: ${label}`;
+  } else {
+    currentVidInfo.textContent = '';
+  }
+  if (vid) {
+    selectionFilter = { vid };
+    selectionFilterActive = true;
+    renderSegmentsUI(currentSegments);
+    // 件数表示
+    let matchCount = currentSegments.filter(seg => seg.vid === vid).length;
+    selectionFilterInfo.textContent = `抽出中: ${matchCount}件。`;
+  } else {
+    selectionFilter = null;
+    selectionFilterActive = false;
+    renderSegmentsUI(currentSegments);
+    selectionFilterInfo.textContent = '';
+  }
+}
+
+filterVoiceCheckbox.addEventListener('change', updateSelectionFilter);
+voiceTypeSelect.addEventListener('change', updateSelectionFilter);
+// findQuoteCheckbox 削除
+
+    // ====== 右サイドバーのタブ切り替え ======
+    const rightSidebarTabBtns = document.querySelectorAll('.rightSidebarTabBtn');
+    const rightSidebarTabContents = document.querySelectorAll('.rightSidebarTabContent');
+    rightSidebarTabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        rightSidebarTabBtns.forEach(b => b.classList.remove('active'));
+        rightSidebarTabContents.forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.getAttribute('data-tab');
+        document.querySelector('.rightSidebarTabContent[data-tab="' + tab + '"]').classList.add('active');
+      });
+    });
+
+    // ====== 右サイドバー開閉 ======
+    const rightSidebar = document.getElementById('rightSidebar');
+    const rightSidebarToggle = document.getElementById('rightSidebarToggle');
+    rightSidebarToggle.addEventListener('click', () => {
+      rightSidebar.classList.toggle('open');
+    });
+    // サイドバー外クリックで閉じる（オプション）
+    document.addEventListener('click', (e) => {
+      if (
+        rightSidebar.classList.contains('open') &&
+        !rightSidebar.contains(e.target) &&
+        e.target !== rightSidebarToggle &&
+        !rightSidebarToggle.contains(e.target)
+      ) {
+        rightSidebar.classList.remove('open');
+      }
+    });
+
+    // ====== DOM要素取得 ======
+    const generateBtn = document.getElementById('generateBtn'); // MP3生成ボタン
+    const regenerateBtn = document.getElementById('regenerateBtn'); // 再生成ボタン
+    const textInput = document.getElementById('textInput'); // 入力テキストエリア
+    const charCount = document.getElementById('charCount'); // 文字数表示
+    const resultDiv = document.getElementById('result'); // 統合音声表示エリア
+    const downloadBtn = document.getElementById('downloadBtn'); // ダウンロードボタン
+    const segmentsAudioList = document.getElementById('segmentsAudioList'); // セグメント音声リスト
+    const sidebar = document.getElementById('sidebar'); // サイドバー
+    const toggle = document.getElementById('sidebarToggle'); // サイドバー開閉ボタン
+    const defaultVoiceSelect = document.getElementById("voiceSelect"); // デフォルト声選択
+    const changeNotice = document.getElementById('changeNotice'); // 変更通知
+
+    // ====== グローバル変数 ======
+    let finalBlobURL = null; // 統合音声のBlob URL
+    let currentSegments = []; // 現在のセグメント配列
+
+    // ====== サイドバー開閉 ======
+    toggle.addEventListener('click', () => {
+      sidebar.classList.toggle('closed');
+      // サイドバーの開閉に応じて#mainのmargin-leftを調整
+      const main = document.getElementById('main');
+      if (sidebar.classList.contains('closed')) {
+        main.style.marginLeft = '0';
+      } else {
+        main.style.marginLeft = '335px';
+      }
+    });
+
+    // ====== 入力文字数カウント ======
+    textInput.addEventListener('input', () => {
+      charCount.textContent = `${textInput.value.length} 文字`;
+    });
+    charCount.textContent = `${textInput.value.length} 文字`;
+
+    // ====== 変更通知の表示制御 ======
+    function updateChangeNotice() {
+      if (!regenerateBtn.disabled) {
+        changeNotice.style.display = 'block';
+      } else {
+        changeNotice.style.display = 'none';
+      }
+    }
+
+
+
+    /**
+     * TTS（テキスト読み上げ）用のURLを生成する
+     * @param {string} vid - 声のID
+     * @param {string} text - 読み上げるテキスト
+     * @returns {string} - 生成されたTTSリクエストURL
+     */
+    function generateTTSURL(vid, text) {
+      // 特殊文字をAPIで読める形に置換
+      const sanitized = text.replace(/&/g, 'アンド').replace(/=/g, 'イコール');
+      return `https://cache-a.oddcast.com/tts/genC.php?EID=3&LID=12&VID=${vid}&TXT=${encodeURIComponent(sanitized)}&EXT=mp3&FNAME=&ACC=15679&SceneID=2646118&HTTP_ERR=`;
+    }
+
+
+    /**
+     * テキストを文ごとに分割する（。！？で区切る）
+     * @param {string} text - 入力テキスト
+     * @returns {string[]} - 文ごとの配列
+     */
+    function splitTextBySentence(text) {
+      // 正規表現で文末（。！？）ごとに分割
+      const sentences = text.match(/[^。！？\r\n]*[。！？]?/g) || [];
+      return sentences.map(s => s.trim()).filter(Boolean);
+    }
+
+
+    /**
+     * 指定URLからMP3ファイル（Blob）を取得する
+     * @param {string} url - MP3ファイルのURL
+     * @returns {Promise<Blob>} - 取得したMP3のBlob
+     */
+    async function fetchMP3Blob(url) {
+      const res = await fetch(url, { mode: 'cors' });
+      if (!res.ok) throw new Error("音声ファイル取得に失敗");
+      return await res.blob();
+    }
+
+
+
+
+/**
+ * セグメントUIのみを即時描画（音声は再生成時のみ取得）
+ * @param {Array<{text: string, vid: string}>} segmentsData
+ */
+function renderSegmentsUI(segmentsData) {
+  segmentsAudioList.innerHTML = '';
+  segmentsData.forEach((seg, i) => {
+    const div = document.createElement('div');
+    const textarea = document.createElement('textarea');
+    textarea.rows = 2;
+    textarea.value = seg.text;
+    textarea.dataset.index = i;
+    // 再生ボタンは常に無効化
+    const controls = document.createElement('div');
+    controls.className = 'segment-controls';
+    const playButton = document.createElement('button');
+    playButton.textContent = '🔊 再生';
+    playButton.disabled = true;
+    // 声選択
+    const voiceSelect = defaultVoiceSelect.cloneNode(true);
+    voiceSelect.removeAttribute('id');
+    voiceSelect.value = seg.vid;
+    voiceSelect.onchange = () => {
+      seg.vid = voiceSelect.value;
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+    };
+    // テキスト編集
+    textarea.oninput = () => {
+      seg.text = textarea.value.trim();
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+    };
+    // セグメント削除
+    const deleteButton = document.createElement('button');
+    deleteButton.textContent = '🗑️';
+    deleteButton.onclick = () => {
+      segmentsData.splice(i, 1);
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      renderSegmentsUI(segmentsData);
+    };
+    // セグメント挿入（上）
+    const insertAboveButton = document.createElement('button');
+    insertAboveButton.textContent = '＋上';
+    insertAboveButton.onclick = () => {
+      segmentsData.splice(i, 0, { text: 'テキストを挿入。', vid: seg.vid });
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      renderSegmentsUI(segmentsData);
+    };
+    // セグメント挿入（下）
+    const insertBelowButton = document.createElement('button');
+    insertBelowButton.textContent = '＋下';
+    insertBelowButton.onclick = () => {
+      segmentsData.splice(i + 1, 0, { text: 'テキストを挿入。', vid: seg.vid });
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      renderSegmentsUI(segmentsData);
+    };
+    controls.append(playButton, voiceSelect, deleteButton, insertAboveButton, insertBelowButton);
+    div.append(textarea, controls);
+    segmentsAudioList.appendChild(div);
+  });
+}
+
+/**
+ * セグメントごとに音声を生成し、UIに反映する
+ * @param {Array<{text: string, vid: string}>} segmentsData - 各セグメントのテキストと声ID
+ */
+async function generateAudioFromSegments(segmentsData) {
+  // --- 1. UI初期化 ---
+  resultDiv.textContent = '生成中...';
+  if (finalBlobURL) {
+    URL.revokeObjectURL(finalBlobURL);
+    finalBlobURL = null;
+  }
+  downloadBtn.disabled = true;
+  // --- 2. 各セグメントの音声を先に全て取得 ---
+  const mergedBlobs = [];
+  const segmentBlobs = [];
+  let ttsCount = 0, ttsLimit = Math.floor(Math.random() * 4) + 7;
+  for (let i = 0; i < segmentsData.length; i++) {
+    const seg = segmentsData[i];
+    const url = generateTTSURL(seg.vid, seg.text);
+    try {
+      const blob = await fetchMP3Blob(url);
+      segmentBlobs.push(blob);
+      mergedBlobs.push(blob);
+    } catch {
+      segmentBlobs.push(null);
+      mergedBlobs.push(new Blob());
+    }
+    if (++ttsCount >= ttsLimit) {
+      await new Promise(res => setTimeout(res, (Math.floor(Math.random() * 6) + 5) * 1000));
+      ttsCount = 0;
+      ttsLimit = Math.floor(Math.random() * 4) + 7;
+    }
+  }
+  // --- 3. UI生成（音声取得後なので再生ボタンは必ず動く） ---
+  segmentsAudioList.innerHTML = '';
+  segmentsData.forEach((seg, i) => {
+    const div = document.createElement('div');
+    const textarea = document.createElement('textarea');
+    textarea.rows = 2;
+    textarea.value = seg.text;
+    textarea.dataset.index = i;
+    let currentBlob = segmentBlobs[i];
+    const controls = document.createElement('div');
+    controls.className = 'segment-controls';
+    const playButton = document.createElement('button');
+    playButton.textContent = '🔊 再生';
+    playButton.disabled = !currentBlob;
+    playButton.onclick = () => {
+      if (currentBlob) new Audio(URL.createObjectURL(currentBlob)).play();
+    };
+    const voiceSelect = defaultVoiceSelect.cloneNode(true);
+    voiceSelect.removeAttribute('id');
+    voiceSelect.value = seg.vid;
+    voiceSelect.onchange = async () => {
+      seg.vid = voiceSelect.value;
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      try {
+        playButton.disabled = true;
+        playButton.textContent = '生成中...';
+        currentBlob = await fetchMP3Blob(generateTTSURL(voiceSelect.value, seg.text));
+        playButton.textContent = '🔊 再生';
+        playButton.disabled = false;
+      } catch {
+        playButton.textContent = 'エラー';
+        playButton.disabled = true;
+      }
+    };
+    textarea.oninput = async () => {
+      seg.text = textarea.value.trim();
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      try {
+        playButton.disabled = true;
+        playButton.textContent = '生成中...';
+        currentBlob = await fetchMP3Blob(generateTTSURL(voiceSelect.value, seg.text));
+        playButton.textContent = '🔊 再生';
+        playButton.disabled = false;
+      } catch {
+        playButton.textContent = 'エラー';
+        playButton.disabled = true;
+      }
+    };
+    const deleteButton = document.createElement('button');
+    deleteButton.textContent = '🗑️';
+    deleteButton.onclick = async () => {
+      segmentsData.splice(i, 1);
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      renderSegmentsUI(segmentsData);
+    };
+    const insertAboveButton = document.createElement('button');
+    insertAboveButton.textContent = '＋上';
+    insertAboveButton.onclick = async () => {
+      segmentsData.splice(i, 0, { text: 'テキストを挿入。', vid: seg.vid });
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      renderSegmentsUI(segmentsData);
+    };
+    const insertBelowButton = document.createElement('button');
+    insertBelowButton.textContent = '＋下';
+    insertBelowButton.onclick = async () => {
+      segmentsData.splice(i + 1, 0, { text: 'テキストを挿入。', vid: seg.vid });
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      renderSegmentsUI(segmentsData);
+    };
+    controls.append(playButton, voiceSelect, deleteButton, insertAboveButton, insertBelowButton);
+    div.append(textarea, controls);
+    segmentsAudioList.appendChild(div);
+  });
+  // --- 4. 統合音声の生成・UI反映 ---
+  finalBlobURL = URL.createObjectURL(new Blob(mergedBlobs, { type: 'audio/mp3' }));
+  resultDiv.textContent = '';
+  const audio = document.createElement('audio');
+  audio.controls = true;
+  audio.src = finalBlobURL;
+  resultDiv.appendChild(audio);
+  downloadBtn.disabled = false;
+  regenerateBtn.disabled = true;
+  updateChangeNotice();
+}
+
+
+
+// ====== MP3生成ボタン ======
+generateBtn.addEventListener('click', async () => {
+  const rawText = textInput.value.trim();
+  const defaultVid = defaultVoiceSelect.value;
+  if (!rawText) {
+    alert("テキストを入力してください");
+    return;
+  }
+  // テキストを文ごとに分割し、セグメント配列を作成
+  const segments = splitTextBySentence(rawText).map(txt => ({ text: txt, vid: defaultVid }));
+  currentSegments = segments;
+  renderSegmentsUI(currentSegments); // まずUIのみ即時描画
+  regenerateBtn.disabled = true; // 初回生成中は再生成ボタンを無効化
+  updateChangeNotice();
+  // すぐ統合MP3も生成
+  await generateAudioFromSegments(currentSegments);
+});
+
+// ====== 再生成ボタン ======
+regenerateBtn.addEventListener('click', async () => {
+  await generateAudioFromSegments(currentSegments);
+  regenerateBtn.disabled = true;
+  updateChangeNotice();
+});
+
+// ====== ダウンロードボタン ======
+downloadBtn.addEventListener('click', () => {
+  if (!finalBlobURL) return;
+  const a = document.createElement('a');
+  a.href = finalBlobURL;
+  a.download = 'merged_audio.mp3';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+});
+
+// 初期表示時もUIのみ描画
+window.addEventListener('DOMContentLoaded', () => {
+  currentSegments = [];
+  renderSegmentsUI(currentSegments);
+});
+  </script>
+</body>
+</html>
