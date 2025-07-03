@@ -246,12 +246,12 @@
   <button id="settingsBtn">⚙</button>
 
   <!-- 右サイドバー -->
-  <div id="rightSidebar" class="right-sidebar closed">
+  <div id="rightSidebar" class="right-sidebar">
     <div class="tab-header">
-      <button class="tab-btn active" data-tab="tab-desc">説明</button>
+      <button class="tab-btn active" data-tab="tab-desc">説明書</button>
       <button class="tab-btn" data-tab="tab-filter">フィルター</button>
-      <button class="tab-btn" data-tab="tab-batch">一括編集</button>
-      <button class="tab-btn" data-tab="tab-segment">精分化</button>
+      <button class="tab-btn" data-tab="tab-batch">バッチ操作</button>
+      <button class="tab-btn" data-tab="tab-segment">精文化</button>
       <button class="tab-btn" data-tab="tab-download">ダウンロード</button>
     </div>
     <div class="tab-content" id="tab-desc" style="display:block;"></div>
@@ -621,7 +621,7 @@ downloadBtn.addEventListener('click', () => {
     // ====== 説明タブ内容 ======
     const descTab = document.getElementById('tab-desc');
     descTab.innerHTML = `
-      <h2>KUSAIKOID ver.beta4.0</h2>
+      <h2>KUSAIKOID ver.beta4.1</h2>
       <ul style="margin-left:1.2em;">
         <li>テキストを文ごとに分割し、各文ごとに声や内容を編集できます。</li>
         <li>「＋上」「＋下」で文を追加、「🗑️」で削除できます。</li>
@@ -638,6 +638,7 @@ downloadBtn.addEventListener('click', () => {
     const filterTab = document.getElementById('tab-filter');
     // 音声名リスト（voiceSelectから取得）
     const voiceSelectOptions = Array.from(defaultVoiceSelect.options).map(opt => ({ value: opt.value, label: opt.textContent }));
+
     // セレクトボックス生成
     const filterLabel = document.createElement('label');
     filterLabel.textContent = '音声フィルタ:';
@@ -646,6 +647,20 @@ downloadBtn.addEventListener('click', () => {
     filterSelect.style.minWidth = '160px';
     filterLabel.appendChild(filterSelect);
     filterTab.appendChild(filterLabel);
+
+    // 検索ボックス追加
+    const searchDiv = document.createElement('div');
+    searchDiv.style.marginTop = '1em';
+    const searchLabel = document.createElement('label');
+    searchLabel.textContent = 'テキスト検索:';
+    searchLabel.style.marginRight = '0.5em';
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = 'キーワードを入力';
+    searchInput.style.minWidth = '160px';
+    searchDiv.appendChild(searchLabel);
+    searchDiv.appendChild(searchInput);
+    filterTab.appendChild(searchDiv);
 
     // 使用中のvoiceのみフィルタセレクトに表示する
     function updateVoiceFilterOptions() {
@@ -679,30 +694,35 @@ downloadBtn.addEventListener('click', () => {
       }
     }
 
-    // フィルタ処理本体
+
+    // フィルタ処理本体（音声フィルタ＋テキスト検索）
     function applyVoiceFilter() {
-      const val = filterSelect.value;
+      const voiceVal = filterSelect.value;
+      const searchVal = searchInput.value.trim();
       const segDivs = segmentsAudioList.querySelectorAll('div');
       segDivs.forEach(div => {
         // 各セグメントdiv内の<select>（声選択）を取得
         const voiceSelect = div.querySelector('select');
         const currentVoice = voiceSelect ? voiceSelect.value : '';
-        if (!val) {
-          // すべて
+        // テキストエリアの値
+        const textarea = div.querySelector('textarea');
+        const textVal = textarea ? textarea.value : '';
+        // 音声フィルタ
+        let visible = true;
+        if (voiceVal && currentVoice !== voiceVal) visible = false;
+        // テキスト検索フィルタ
+        if (searchVal && !textVal.includes(searchVal)) visible = false;
+        if (visible) {
           div.style.display = '';
           div.dataset.visible = 'true';
         } else {
-          if (currentVoice === val) {
-            div.style.display = '';
-            div.dataset.visible = 'true';
-          } else {
-            div.style.display = 'none';
-            div.dataset.visible = 'false';
-          }
+          div.style.display = 'none';
+          div.dataset.visible = 'false';
         }
       });
     }
     filterSelect.addEventListener('change', applyVoiceFilter);
+    searchInput.addEventListener('input', applyVoiceFilter);
 
     // セグメントUI再描画時にもフィルタ選択肢・フィルタを再適用
     const _origRenderSegmentsUI = renderSegmentsUI;
