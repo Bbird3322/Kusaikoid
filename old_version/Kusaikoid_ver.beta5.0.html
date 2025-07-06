@@ -1,0 +1,2048 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>Kusaikoid(仮)</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      display: flex;
+      height: 100vh;
+      align-items: flex-start;
+    }
+    #sidebarToggle {
+      position: fixed;
+      top: 0.5em;
+      left: 0;
+      background: #333;
+      color: white;
+      padding: 0.5em 1em;
+      cursor: pointer;
+      z-index: 1001;
+    }
+    #sidebar {
+      width: 320px;
+      background: #f0f0f0;
+      padding: 1em;
+      box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+      transition: transform 0.3s ease-in-out;
+      overflow-y: auto;
+      position: fixed;
+      left: 0;
+      top: 0;
+      height: 100vh;
+      z-index: 1000;
+    }
+    /* #sidebar.bottom { 下表示は無効化（常に左固定） } */
+    #sidebar.closed {
+      transform: translateX(-100%);
+    }
+    #main {
+      flex: 1;
+      padding: 2em;
+      overflow-y: auto;
+      margin-left: 335px; /* サイドバーの幅分だけ右にずらす（開時） */
+      transition: margin-left 0.3s;
+    }
+    #sidebar.closed ~ #main {
+      margin-left: 0 !important; /* サイドバー閉時は左寄せ */
+    }
+    textarea, select {
+      margin-bottom: 0.5em;
+      padding: 0.5em;
+    }
+    textarea {
+      width: 100%;
+    }
+    select {
+      min-width: 150px;
+    }
+    button {
+      padding: 0.5em 1em;
+      margin-right: 0.5em;
+      border: none;
+      border-radius: 4px;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+
+    /* セグメント操作ボタン用の白色スタイル */
+    #segmentsAudioList .segment-controls button {
+      background-color: #fff;
+      color: #333;
+      border: 1px solid #bbb;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      background-color: #aaa;
+    }
+    #regenerateBtn {
+      background-color: #d9534f;
+    }
+    #segmentsAudioList > div {
+      margin-bottom: 1em;
+    }
+    #segmentsAudioList .segment-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5em;
+      margin-top: 0.5em;
+    }
+    #segmentsAudioList textarea {
+      width: 100%;
+      resize: vertical;
+    }
+    .sectionTitle {
+      margin-top: 1em;
+      font-weight: bold;
+    }
+    #changeNotice {
+      color: #d9534f;
+      font-weight: bold;
+      margin-top: 0.5em;
+      display: none;
+    }
+
+    /* ファイル保存・読み込みボタンのスタイル */
+    #fileButtons {
+      position: absolute;
+      top: 0.5em;
+      right: 0;
+      display: flex;
+      align-items: center;
+      z-index: 1002;
+    }
+    
+    #fileToggle {
+      background: #666;
+      color: white;
+      border: none;
+      padding: 0.5em;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1.2em;
+      transition: all 0.3s ease;
+    }
+    
+    #fileToggle:hover {
+      background: #555;
+    }
+    
+    #fileActions {
+      display: flex;
+      gap: 0.5em;
+      margin-right: 0.5em;
+      opacity: 0;
+      transform: translateX(20px);
+      transition: all 0.3s ease;
+      pointer-events: none;
+    }
+    
+    #fileActions.expanded {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+    
+    #fileActions button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 0.5em;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1em;
+      transition: background 0.2s ease;
+    }
+    
+    #saveBtn {
+      background: #4CAF50;
+    }
+    
+    #loadBtn {
+      background: #2196F3;
+    }
+    
+    #saveBtn:hover {
+      background: #45a049;
+    }
+    
+    #loadBtn:hover {
+      background: #1976D2;
+    }
+
+    /* 右サイドバー */
+    .right-sidebar {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 630px;
+      min-width: 630px;
+      max-width: 100vw;
+      height: 100vh;
+      background: #f8f8f8;
+      box-shadow: -2px 0 5px rgba(0,0,0,0.15);
+      z-index: 1050;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.3s;
+    }
+    .right-sidebar.closed {
+      transform: translateX(100%);
+    }
+    .tab-header {
+      display: flex;
+      border-bottom: 1px solid #ddd;
+      background: #f4f4f4;
+      height: 52px;
+    }
+    .tab-btn {
+      flex: 1;
+      min-width: 0;
+      padding: 0 0.2em;
+      border: none;
+      background: none;
+      font-size: 1.13em;
+      cursor: pointer;
+      outline: none;
+      border-right: 1px solid #ddd;
+      transition: background 0.2s, color 0.2s;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #555;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tab-btn:last-child {
+      border-right: none;
+    }
+    .tab-btn.active {
+      background: #fff;
+      font-weight: bold;
+      color: #007bff;
+      border-bottom: 2.5px solid #007bff;
+    }
+    .tab-content {
+      flex: 1;
+      padding: 1.2em;
+      background: #fff;
+      overflow-y: auto;
+    }
+
+    /* ⚙ボタン */
+    #settingsBtn {
+      position: fixed;
+      right: 2em;
+      bottom: 2em;
+      z-index: 1100;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      font-size: 2em;
+      background: #fff;
+      color: #333;
+      border: 2px solid #bbb;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: box-shadow 0.2s, border-color 0.2s;
+    }
+    #settingsBtn:active, #settingsBtn:focus {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      border-color: #007bff;
+      outline: none;
+    }
+    #settingsBtn:before {
+      content: '';
+      display: inline-block;
+      vertical-align: middle;
+      height: 100%;
+    }
+
+    /* 統合Redoボタン */
+    #globalRedoBtn {
+      position: fixed;
+      right: 4.5em;
+      bottom: 2em;
+      z-index: 1100;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      font-size: 2em;
+      background: #fff;
+      color: #333;
+      border: 2px solid #bbb;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: box-shadow 0.2s, border-color 0.2s;
+    }
+    #globalRedoBtn:active, #globalRedoBtn:focus {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      border-color: #007bff;
+      outline: none;
+    }
+    #globalRedoBtn:before {
+      content: '';
+      display: inline-block;
+      vertical-align: middle;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- デバッグメニュー -->
+  <div id="debugMenuContainer" style="position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:2000;background:#222;color:#fff;padding:0.5em 1em 1em 1em;border-radius:0 0 8px 8px;box-shadow:0 2px 8px rgba(0,0,0,0.18);display:none;min-width:320px;max-width:90vw;">
+    <label style="font-weight:bold;cursor:pointer;">
+      <input type="checkbox" id="debugMenuToggle" style="vertical-align:middle;margin-right:0.5em;">デバッグ表示
+    </label>
+    <div style="margin-top:0.5em;">
+      <button id="debugTabTextMidChange" style="margin-right:0.5em;">TextMidChange</button>
+      <button id="debugTabPool" style="margin-right:0.5em;">Pool</button>
+      <button id="debugTabChanged" style="margin-right:0.5em;">Changed</button>
+      <button id="debugTabDPool">DPool</button>
+    </div>
+    <div id="debugMenuContent" style="margin-top:0.7em;max-height:300px;overflow:auto;font-size:0.95em;background:#333;padding:0.7em;border-radius:6px;display:none;"></div>
+  </div>
+  <script>
+    // デバッグメニューの表示切替
+    const debugMenuContainer = document.getElementById('debugMenuContainer');
+    const debugMenuToggle = document.getElementById('debugMenuToggle');
+    const debugMenuContent = document.getElementById('debugMenuContent');
+    // デバッグメニューコンテナの表示状態を管理
+    let debugMenuVisible = false; // 初期は非表示
+    
+    // Ctrl+Shift+Dでデバッグメニューコンテナの表示/非表示を切り替え
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+        e.preventDefault();
+        debugMenuVisible = !debugMenuVisible;
+        debugMenuContainer.style.display = debugMenuVisible ? 'block' : 'none';
+        if (debugMenuVisible && debugMenuToggle.checked) {
+          updateDebugMenu();
+        }
+      }
+    });
+    
+    debugMenuToggle.addEventListener('change', () => {
+      debugMenuContent.style.display = debugMenuToggle.checked ? 'block' : 'none';
+      if (debugMenuToggle.checked) updateDebugMenu();
+    });
+
+    // Poolの内容を一時的に保持するグローバル変数
+    window._debugPool = null;
+
+    // TextMidChangeまたはPoolの内容を表示
+    function updateDebugMenu() {
+      if (!window.TextMidChange) return;
+      const now = new Date();
+      let html = '';
+      const activeTab = window._debugTab || 'TextMidChange';
+      if (activeTab === 'TextMidChange') {
+        html += `<b>TextMidChange（行:セグメント, 列:履歴）</b> <span style='font-size:0.9em;color:#8ff;'>(更新: ${now.toLocaleTimeString()}.${now.getMilliseconds().toString().padStart(3,'0')})</span><br>`;
+        html += '<table border="1" style="border-collapse:collapse;font-size:0.95em;background:#222;color:#fff;width:100%;min-width:700px;table-layout:fixed;">';
+        html += '<thead><tr><th style="width:40px;">行</th>';
+        for (let j = 0; j < 10; j++) html += `<th style="width:120px;">${j+1}</th>`;
+        html += '</tr></thead><tbody>';
+        for (let i = 0; i < TextMidChange.length; i++) {
+          html += `<tr><td style="font-weight:bold;">${i}</td>`;
+          for (let j = 0; j < 10; j++) {
+            html += `<td style="max-width:180px;overflow-wrap:anywhere;min-width:80px;">${TextMidChange[i] && typeof TextMidChange[i][j] !== 'undefined' ? TextMidChange[i][j] : ''}</td>`;
+          }
+          html += '</tr>';
+        }
+        html += '</tbody></table>';
+      } else if (activeTab === 'Pool') {
+        html += `<b>Pool（直近の行・列操作時のスナップショット）</b> <span style='font-size:0.9em;color:#8ff;'>(更新: ${now.toLocaleTimeString()}.${now.getMilliseconds().toString().padStart(3,'0')})</span><br>`;
+        if (window._debugPool) {
+          html += '<table border="1" style="border-collapse:collapse;font-size:0.95em;background:#222;color:#fff;width:100%;min-width:700px;table-layout:fixed;">';
+          html += '<thead><tr><th style="width:40px;">行</th>';
+          for (let j = 0; j < 10; j++) html += `<th style="width:120px;">${j+1}</th>`;
+          html += '</tr></thead><tbody>';
+          for (let i = 0; i < window._debugPool.length; i++) {
+            html += `<tr><td style="font-weight:bold;">${i}</td>`;
+            for (let j = 0; j < 10; j++) {
+              html += `<td style="max-width:180px;overflow-wrap:anywhere;min-width:80px;">${window._debugPool[i] && typeof window._debugPool[i][j] !== 'undefined' ? window._debugPool[i][j] : ''}</td>`;
+            }
+            html += '</tr>';
+          }
+          html += '</tbody></table>';
+        } else {
+          html += '<span style="color:#faa;">Poolはまだ記録されていません。</span>';
+        }
+      } else if (activeTab === 'Changed') {
+        html += `<b>Changed（統合MP3再生成時の最新状態）</b> <span style='font-size:0.9em;color:#8ff;'>(更新: ${now.toLocaleTimeString()}.${now.getMilliseconds().toString().padStart(3,'0')})</span><br>`;
+        html += `<span style='color:#ccc;'>行数: ${window.Changed.length}</span><br>`;
+        if (window.Changed.length > 0) {
+          html += '<table border="1" style="border-collapse:collapse;font-size:0.95em;background:#222;color:#fff;width:100%;min-width:500px;">';
+          html += '<thead><tr><th style="width:40px;">行</th><th style="width:300px;">テキスト</th><th style="width:80px;">声</th><th style="width:100px;">鍵</th></tr></thead><tbody>';
+          for (let i = 0; i < window.Changed.length; i++) {
+            const item = window.Changed[i];
+            html += `<tr><td style="font-weight:bold;">${i}</td>`;
+            html += `<td style="max-width:300px;overflow-wrap:anywhere;">${item.text || ''}</td>`;
+            html += `<td>${item.vid || ''}</td>`;
+            html += `<td style="font-size:0.8em;">${item.ttsboxId || ''}</td>`;
+            html += '</tr>';
+          }
+          html += '</tbody></table>';
+        } else {
+          html += '<span style="color:#faa;">Changedは空です。</span>';
+        }
+      } else if (activeTab === 'DPool') {
+        html += `<b>DPool（削除されたセグメント履歴）</b> <span style='font-size:0.9em;color:#8ff;'>(更新: ${now.toLocaleTimeString()}.${now.getMilliseconds().toString().padStart(3,'0')})</span><br>`;
+        html += `<span style='color:#ccc;'>件数: ${DPool.length}/20</span><br>`;
+        if (DPool.length > 0) {
+          html += '<div style="margin-bottom:0.5em;"><button onclick="revertAllFromDPool()" style="background:#d9534f;color:white;border:none;padding:0.3em 0.8em;border-radius:4px;cursor:pointer;">全差し戻し</button></div>';
+          html += '<table border="1" style="border-collapse:collapse;font-size:0.95em;background:#222;color:#fff;width:100%;min-width:600px;">';
+          html += '<thead><tr><th style="width:40px;">No.</th><th style="width:60px;">元位置</th><th style="width:250px;">テキスト</th><th style="width:80px;">声</th><th style="width:80px;">次の鍵</th><th style="width:80px;">操作</th></tr></thead><tbody>';
+          for (let i = 0; i < DPool.length; i++) {
+            const item = DPool[i];
+            html += `<tr><td style="font-weight:bold;">${i+1}</td>`;
+            html += `<td>${item.index}</td>`;
+            html += `<td style="max-width:250px;overflow-wrap:anywhere;">${item.segment.text || ''}</td>`;
+            html += `<td>${item.segment.vid || ''}</td>`;
+            html += `<td>${item.nextKey || 'なし'}</td>`;
+            html += `<td><button onclick="revertSingleFromDPool(${i})" style="background:#007bff;color:white;border:none;padding:0.2em 0.5em;border-radius:3px;cursor:pointer;font-size:0.8em;">復元</button></td>`;
+            html += '</tr>';
+          }
+          html += '</tbody></table>';
+        } else {
+          html += '<span style="color:#faa;">DPoolは空です。</span>';
+        }
+      }
+      debugMenuContent.innerHTML = html;
+    }
+    // TextMidChange更新時にデバッグ内容も更新
+    window.updateDebugMenu = updateDebugMenu;
+
+    // デバッグタブ切り替え
+    window._debugTab = 'TextMidChange';
+    document.addEventListener('DOMContentLoaded', () => {
+      const tab1 = document.getElementById('debugTabTextMidChange');
+      const tab2 = document.getElementById('debugTabPool');
+      const tab3 = document.getElementById('debugTabChanged');
+      const tab4 = document.getElementById('debugTabDPool');
+      if (tab1 && tab2 && tab3 && tab4) {
+        tab1.onclick = () => { window._debugTab = 'TextMidChange'; updateDebugMenu(); };
+        tab2.onclick = () => { window._debugTab = 'Pool'; updateDebugMenu(); };
+        tab3.onclick = () => { window._debugTab = 'Changed'; updateDebugMenu(); };
+        tab4.onclick = () => { window._debugTab = 'DPool'; updateDebugMenu(); };
+      }
+      
+      // DPoolボタンの初期状態を設定
+      updateGlobalRedoButton();
+      
+      // 説明書タブの内容を設定
+      const descTab = document.getElementById('tab-desc');
+      if (descTab) {
+        descTab.innerHTML = `
+          <div style="padding: 1em; font-size: 1.2em; line-height: 1.6;">
+            <h3 style="margin-top: 0; border-bottom: 2px solid #ddd; padding-bottom: 0.5em;font-size: 2.0em;">KUSAIKOID ver.beta5.0</h3>
+            
+            <h4>基本的な使い方</h4>
+            <ol>
+              <li><strong>テキスト入力</strong>: 左サイドバーにテキストを入力</li>
+              <li><strong>音声生成</strong>: 「MP3を生成」ボタンでセグメント分割＋音声生成</li>
+              <li><strong>編集</strong>: 各セグメントのテキストや音声を個別に編集可能</li>
+              <li><strong>再生成</strong>: 編集後は「編集後のMP3を再生成」で統合音声を更新</li>
+            </ol>
+            
+            <h4>ファイル機能</h4>
+            <p><strong>保存・読み込み</strong>: 左上の📁ボタンから展開</p>
+            <ul>
+              <li><strong>💾 保存</strong>: プロジェクト全体をJSONファイルで保存</li>
+              <li><strong>📂 読み込み</strong>: 
+                <ul>
+                  <li><strong>JSONファイル</strong>: プロジェクト完全復元</li>
+                  <li><strong>TXTファイル</strong>: 台本形式（VID:テキスト）から読み込み</li>
+                </ul>
+              </li>
+            </ul>
+
+            <h4>📝 台本形式（TXTファイル）</h4>
+            <p>以下の形式でテキストファイルを作成すると読み込み可能:</p>
+            <pre style="background: #f5f5f5; padding: 0.5em; border-radius: 4px; font-size: 0.8em;">2:拓也の射精　3000円
+# コメント行（#で始まる行は無視されます）</pre>
+            <h4>🎤 音声ID（VID）一覧</h4>
+            <ul style="columns: 2; column-gap: 1em;">
+              <li><strong>VID:2</strong> - 拓也さん / CV.SHOW</li>
+              <li><strong>VID:3</strong> - MISAKI</li>
+              <li><strong>VID:4</strong> - SAYAKA</li>
+              <li><strong>VID:5</strong> - HIKARI</li>
+              <li><strong>VID:6</strong> - マネージャー / CV.HARUKA</li>
+              <li><strong>VID:7</strong> - RYO</li>
+              <li><strong>VID:8</strong> - レオ / CV.TAKERU</li>
+            </ul>
+            
+            <h4>セグメント編集</h4>
+            <ul>
+              <li><strong>🔊 再生</strong>: 個別セグメント音声の再生</li>
+              <li><strong>↺/↻</strong>: テキスト履歴の戻る・進む（最大10件）</li>
+              <li><strong>音声選択</strong>: セグメントごとに異なる音声を選択可能</li>
+              <li><strong>🗑️ 削除</strong>: セグメント削除（削除プールに保存）</li>
+              <li><strong>＋上/＋下</strong>: 新しいセグメントを上下に挿入</li>
+            </ul>
+            
+            <h4>履歴・復元機能</h4>
+            <ul>
+              <li><strong>編集履歴</strong>: 各セグメントのテキスト変更を最大10件記録</li>
+              <li><strong>削除プール</strong>: 削除したセグメントを最大20件保存</li>
+              <li><strong>↺ボタン</strong>: 削除プールからの一括復元</li>
+              <li><strong>状態診断</strong>: 編集状態を自動判定・表示</li>
+            </ul>
+            
+            <h4>フィルター機能</h4>
+            <ul>
+              <li><strong>音声フィルター</strong>: 特定の音声のセグメントのみ表示</li>
+              <li><strong>編集状態フィルター</strong>: 編集済み/未編集で絞り込み</li>
+              <li><strong>テキスト検索</strong>: セグメント内容での検索</li>
+            </ul>
+            
+            <h4>デバッグ機能</h4>
+            <p><strong>Ctrl+Shift+D</strong>: デバッグメニュー表示（内部状態確認用）</p>
+            
+            <h4>注意事項</h4>
+            <ul>
+              <li>音声生成にはインターネット接続が必要です</li>
+              <li>大量のセグメントは生成に時間がかかります</li>
+              <li>5-10回の音声生成ごとに7-10秒の休止が入ります</li>
+              <li>ブラウザのリロードで未保存データは失われます</li>
+            </ul>
+          </div>
+        `;
+      }
+    });
+
+    // 力技: デバッグメニューが開いている間は1秒ごとに自動更新
+    setInterval(() => {
+      if (debugMenuToggle.checked) updateDebugMenu();
+    }, 1000);
+    
+    // DPoolの差し戻し機能
+    window.revertSingleFromDPool = function(index) {
+      if (index >= 0 && index < DPool.length) {
+        const item = DPool[index];
+        
+        // セグメントを復元
+        let insertIndex = 0;
+        if (item.nextKey) {
+          const targetIndex = currentSegments.findIndex(seg => seg.ttsboxId === item.nextKey);
+          if (targetIndex !== -1) {
+            insertIndex = targetIndex;
+          } else {
+            insertIndex = Math.min(item.index, currentSegments.length);
+          }
+        } else {
+          insertIndex = currentSegments.length;
+        }
+        
+        currentSegments.splice(insertIndex, 0, item.segment);
+        window.insertTMCrow(insertIndex, item.segment.text);
+        if (item.history && item.history.length > 0) {
+          window.TextMidChange[insertIndex] = [...item.history];
+        }
+        
+        // DPoolから削除
+        DPool.splice(index, 1);
+        
+        regenerateBtn.disabled = false;
+        updateChangeNotice();
+        renderSegmentsUI(currentSegments);
+        updateVoiceFilterOptions();
+        updateGlobalRedoButton();
+        if (window.updateDebugMenu && document.getElementById('debugMenuToggle')?.checked) window.updateDebugMenu();
+      }
+    };
+    
+    window.revertAllFromDPool = function() {
+      if (DPool.length === 0) return;
+      
+      const confirmRevert = confirm(`DPoolの全${DPool.length}項目を差し戻しますか？\n既存のセグメントに影響する可能性があります。`);
+      if (!confirmRevert) return;
+      
+      // 逆順で復元（後で削除されたものから先に復元）
+      while (DPool.length > 0) {
+        const item = DPool.pop();
+        
+        let insertIndex = 0;
+        if (item.nextKey) {
+          const targetIndex = currentSegments.findIndex(seg => seg.ttsboxId === item.nextKey);
+          if (targetIndex !== -1) {
+            insertIndex = targetIndex;
+          } else {
+            insertIndex = Math.min(item.index, currentSegments.length);
+          }
+        } else {
+          insertIndex = currentSegments.length;
+        }
+        
+        currentSegments.splice(insertIndex, 0, item.segment);
+        window.insertTMCrow(insertIndex, item.segment.text);
+        if (item.history && item.history.length > 0) {
+          window.TextMidChange[insertIndex] = [...item.history];
+        }
+      }
+      
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      renderSegmentsUI(currentSegments);
+      updateVoiceFilterOptions();
+      updateGlobalRedoButton();
+      if (window.updateDebugMenu && document.getElementById('debugMenuToggle')?.checked) window.updateDebugMenu();
+    };
+  </script>
+  <div id="sidebarToggle">≡ 入力</div>
+  <!-- サイドバー位置切替ボタンは不要なので削除 -->
+
+  <div id="sidebar" class="">
+    <!-- ファイル保存・読み込みボタン -->
+    <div id="fileButtons">
+      <div id="fileActions">
+        <button id="saveBtn">💾</button>
+        <button id="loadBtn">📂</button>
+      </div>
+      <button id="fileToggle">📁</button>
+    </div>
+    
+    <br>
+    <h2>音声生成</h2>
+    <label for="voiceSelect">デフォルトの声:</label>
+    <select id="voiceSelect">
+      <option value="2">拓也さん / CV.SHOW</option>
+      <option value="3">MISAKI</option>
+      <option value="4">SAYAKA</option>
+      <option value="5">HIKARI</option>
+      <option value="6">マネージャー / CV.HARUKA</option>
+      <option value="7">RYO</option>
+      <option value="8">レオ / CV.TAKERU</option>
+    </select>
+    <br>
+    <label for="textInput">テキストを入力:</label>
+    <textarea id="textInput" rows="10">「クリスマス・イブは３日間くらいあるといいんだよね。だってさぁ、イヴの日とかに一人のオンナの子とかいっぱいいてかわいそうじゃん！」なんて言っていながら、オレにとっての本命くんがはたしてイブに呼んでくれるかどうかやっぱり気になる。本命クンは決して絶対に約束なんかしてくれない。だからオレはグレまくってウリなんかやっている。それに絶対決して「好きだ」なんて言ってくれない。単なる「ペット」として愛してくれているだけだ。</textarea>
+    <div id="charCount">0文字</div>
+
+    <button id="generateBtn">MP3を生成</button>
+    <button id="regenerateBtn" disabled>編集後のMP3を再生成</button>
+
+    <div class="sectionTitle">統合音声</div>
+    <div id="result"></div>
+    <button id="downloadBtn" disabled>MP3をダウンロード</button>
+    <div id="changeNotice">変更点が更新されていません。</div>
+  </div>
+
+  <div id="main">
+    <br>
+    <div class="sectionTitle">単文別音声</div>
+    <div id="segmentsAudioList"></div>
+  </div>
+
+  <!-- 右下の⚙ボタン -->
+  <button id="settingsBtn">⚙</button>
+
+  <!-- 統合Redoボタン -->
+  <button id="globalRedoBtn">↺</button>
+
+  <!-- 右サイドバー -->
+  <div id="rightSidebar" class="right-sidebar">
+    <div class="tab-header">
+      <button class="tab-btn active" data-tab="tab-desc">説明書</button>
+      <button class="tab-btn" data-tab="tab-filter">フィルター</button>
+      <button class="tab-btn" data-tab="tab-batch">バッチ操作</button>
+      <button class="tab-btn" data-tab="tab-segment">精文化</button>
+      <button class="tab-btn" data-tab="tab-download">ダウンロード</button>
+    </div>
+    <div class="tab-content" id="tab-desc" style="display:block;"></div>
+    <div class="tab-content" id="tab-filter" style="display:none;"></div>
+    <div class="tab-content" id="tab-batch" style="display:none;"></div>
+    <div class="tab-content" id="tab-segment" style="display:none;"></div>
+    <div class="tab-content" id="tab-download" style="display:none;"></div>
+  </div>
+
+  <script>
+    // ====== DOM要素取得 ======
+    const generateBtn = document.getElementById('generateBtn'); // MP3生成ボタン
+    const regenerateBtn = document.getElementById('regenerateBtn'); // 再生成ボタン
+    const textInput = document.getElementById('textInput'); // 入力テキストエリア
+    const charCount = document.getElementById('charCount'); // 文字数表示
+    const resultDiv = document.getElementById('result'); // 統合音声表示エリア
+    const downloadBtn = document.getElementById('downloadBtn'); // ダウンロードボタン
+    const segmentsAudioList = document.getElementById('segmentsAudioList'); // セグメント音声リスト
+    const sidebar = document.getElementById('sidebar'); // サイドバー
+    const toggle = document.getElementById('sidebarToggle'); // サイドバー開閉ボタン
+    const defaultVoiceSelect = document.getElementById("voiceSelect"); // デフォルト声選択
+    const changeNotice = document.getElementById('changeNotice'); // 変更通知
+    const settingsBtn = document.getElementById('settingsBtn'); // ⚙ボタン
+    const globalRedoBtn = document.getElementById('globalRedoBtn'); // 統合Redoボタン
+    const rightSidebar = document.getElementById('rightSidebar'); // 右サイドバー
+
+    // ファイル保存・読み込みボタン
+    const fileToggle = document.getElementById('fileToggle');
+    const fileActions = document.getElementById('fileActions');
+    const saveBtn = document.getElementById('saveBtn');
+    const loadBtn = document.getElementById('loadBtn');
+
+    // ====== グローバル変数 ======
+    let finalBlobURL = null; // 統合音声のBlob URL
+    let currentSegments = []; // 現在のセグメント配列
+    // TextMidChange: [行][履歴] 形式の2次元配列。各行はセグメント、各列は履歴（1が直前、最大10件）
+    window.TextMidChange = [];
+    // Changed行列: 統合MP3再生成時の各セグメントの最新状態を保存
+    window.Changed = [];
+    // DPool: 削除されたセグメントを記憶（最大20件）
+    let DPool = [];
+    
+    // ランダムな文字列を生成する関数
+    function generateRandomKey(length = 8) {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let result = '';
+      for (let i = 0; i < length; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return result;
+    }
+    
+    // 時刻鍵を生成する関数（現在時刻の秒数 × 114.514）
+    function generateTimeKey() {
+      const now = Date.now();
+      const seconds = Math.floor(now / 1000);
+      const timeKey = Math.floor(seconds * 114.514);
+      return timeKey.toString();
+    }
+    
+    // 文字鍵と時刻鍵を併用した複合鍵を生成
+    function generateHybridKey() {
+      const randomPart = generateRandomKey(6); // 6文字のランダム文字列
+      const timePart = generateTimeKey(); // 時刻鍵
+      return `${randomPart}-${timePart}`;
+    }
+
+    // DPoolボタンの状態を更新
+    function updateGlobalRedoButton() {
+        const globalRedoBtn = document.getElementById('globalRedoBtn');
+        if (globalRedoBtn) {
+            if (DPool.length === 0) {
+                globalRedoBtn.style.opacity = '0.3';
+                globalRedoBtn.style.cursor = 'not-allowed';
+            } else {
+                globalRedoBtn.style.opacity = '1';
+                globalRedoBtn.style.cursor = 'pointer';
+            }
+        }
+    }
+
+    // ====== サイドバー開閉 ======
+    toggle.addEventListener('click', () => {
+      sidebar.classList.toggle('closed');
+      // サイドバーの開閉に応じて#mainのmargin-leftを調整
+      const main = document.getElementById('main');
+      if (sidebar.classList.contains('closed')) {
+        main.style.marginLeft = '0';
+      } else {
+        main.style.marginLeft = '335px';
+      }
+    });
+
+    // ====== ファイル保存・読み込みボタン ======
+    // ファイルボタンの展開・収納
+    fileToggle.addEventListener('click', () => {
+      fileActions.classList.toggle('expanded');
+    });
+
+    // 保存ボタン（JSON形式でダウンロード）
+    saveBtn.addEventListener('click', () => {
+      // 保存データの構造を作成
+      const saveData = {
+        version: "1.0",
+        timestamp: new Date().toISOString(),
+        inputText: textInput.value,
+        defaultVoice: defaultVoiceSelect.value,
+        currentSegments: currentSegments,
+        textMidChange: window.TextMidChange,
+        changed: window.Changed,
+        dPool: DPool
+      };
+      
+      // JSONファイルとしてダウンロード
+      const dataStr = JSON.stringify(saveData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      
+      // ファイル名を生成（日時付き）
+      const now = new Date();
+      const fileName = `kusaikoid_project_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}.json`;
+      
+      // ダウンロード実行
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      // ファイルボタンを閉じる
+      fileActions.classList.remove('expanded');
+      
+      console.log('プロジェクトファイルを保存しました:', fileName);
+    });
+
+    // 読み込みボタン（JSONファイルまたはテキストファイルをアップロード）
+    loadBtn.addEventListener('click', () => {
+      // ファイル選択用のinput要素を作成
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = '.json,.txt';
+      fileInput.style.display = 'none';
+      
+      fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        try {
+          const text = await file.text();
+          
+          // ファイル拡張子で判定
+          if (file.name.toLowerCase().endsWith('.json')) {
+            // JSONファイルの処理（既存の処理）
+            const saveData = JSON.parse(text);
+            
+            // バージョンチェック
+            if (!saveData.version) {
+              throw new Error('無効なプロジェクトファイルです');
+            }
+            
+            // データを復元
+            if (saveData.inputText !== undefined) {
+              textInput.value = saveData.inputText;
+              charCount.textContent = `${textInput.value.length} 文字`;
+            }
+            
+            if (saveData.defaultVoice !== undefined) {
+              defaultVoiceSelect.value = saveData.defaultVoice;
+            }
+            
+            if (saveData.currentSegments) {
+              currentSegments = saveData.currentSegments;
+            }
+            
+            if (saveData.textMidChange) {
+              window.TextMidChange = saveData.textMidChange;
+            }
+            
+            if (saveData.changed) {
+              window.Changed = saveData.changed;
+            }
+            
+            if (saveData.dPool) {
+              DPool = saveData.dPool;
+            }
+            
+            console.log('JSONプロジェクトファイルを読み込みました:', file.name);
+            console.log('読み込み日時:', saveData.timestamp);
+            
+          } else if (file.name.toLowerCase().endsWith('.txt')) {
+            // テキストファイルの処理（VID:テキスト形式）
+            const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+            const segments = [];
+            
+            for (const line of lines) {
+              // コメント行をスキップ
+              if (line.startsWith('#')) continue;
+              
+              // VID:テキスト形式の解析
+              const match = line.match(/^(\d+):(.+)$/);
+              if (match) {
+                const vid = match[1];
+                const segmentText = match[2].trim();
+                
+                // VIDが有効かチェック（2-8の範囲）
+                if (vid >= '2' && vid <= '8') {
+                  segments.push({
+                    text: segmentText,
+                    vid: vid,
+                    ttsboxId: generateHybridKey()
+                  });
+                } else {
+                  console.warn(`無効なVID: ${vid} (行: ${line})`);
+                }
+              } else {
+                console.warn(`無効な形式の行をスキップ: ${line}`);
+              }
+            }
+            
+            if (segments.length === 0) {
+              throw new Error('有効なセグメントが見つかりませんでした。VID:テキスト形式で記述してください。');
+            }
+            
+            // 現在のデータをリセット
+            currentSegments = segments;
+            window.TextMidChange = [];
+            window.Changed = [];
+            DPool = [];
+            
+            // 入力テキストエリアをクリア
+            textInput.value = '';
+            charCount.textContent = '0 文字';
+            
+            console.log(`テキストファイルを読み込みました: ${file.name} (${segments.length}セグメント)`);
+            
+          } else {
+            throw new Error('サポートされていないファイル形式です。JSONまたはTXTファイルを選択してください。');
+          }
+          
+          // UIを再描画
+          if (currentSegments.length > 0) {
+            renderSegmentsUI(currentSegments);
+            updateVoiceFilterOptions();
+            
+            // 読み込み後に自動的にMP3を再生成
+            console.log('読み込み完了後、MP3を自動再生成します...');
+            
+            // 少し待ってからMP3再生成を実行（UIの描画が完了するまで）
+            setTimeout(async () => {
+              try {
+                await generateAudioFromSegments(currentSegments);
+                regenerateBtn.disabled = true;
+                updateChangeNotice();
+                console.log('MP3の自動再生成が完了しました');
+              } catch (error) {
+                console.error('MP3自動再生成エラー:', error);
+                alert('MP3の自動再生成に失敗しました: ' + error.message);
+              }
+            }, 100);
+          }
+          
+          // DPoolボタンの状態を更新
+          updateGlobalRedoButton();
+          
+          // デバッグメニューを更新
+          if (window.updateDebugMenu && document.getElementById('debugMenuToggle')?.checked) {
+            window.updateDebugMenu();
+          }
+          
+          // ファイルボタンを閉じる
+          fileActions.classList.remove('expanded');
+          
+        } catch (error) {
+          console.error('ファイル読み込みエラー:', error);
+          alert('ファイルの読み込みに失敗しました: ' + error.message);
+        }
+        
+        // input要素を削除
+        document.body.removeChild(fileInput);
+      });
+      
+      // ファイル選択ダイアログを表示
+      document.body.appendChild(fileInput);
+      fileInput.click();
+    });
+
+    // 他の場所をクリックしたときにファイルボタンを閉じる
+    document.addEventListener('click', (e) => {
+      if (!fileToggle.contains(e.target) && !fileActions.contains(e.target)) {
+        fileActions.classList.remove('expanded');
+      }
+    });
+
+    // ====== 入力文字数カウント ======
+    textInput.addEventListener('input', () => {
+      charCount.textContent = `${textInput.value.length} 文字`;
+    });
+    charCount.textContent = `${textInput.value.length} 文字`;
+
+    // ====== 変更通知の表示制御 ======
+    function updateChangeNotice() {
+      if (!regenerateBtn.disabled) {
+        changeNotice.style.display = 'block';
+      } else {
+        changeNotice.style.display = 'none';
+      }
+    }
+
+
+
+    /**
+     * TTS（テキスト読み上げ）用のURLを生成する
+     * @param {string} vid - 声のID
+     * @param {string} text - 読み上げるテキスト
+     * @returns {string} - 生成されたTTSリクエストURL
+     */
+    function generateTTSURL(vid, text) {
+      // 特殊文字をAPIで読める形に置換
+      const sanitized = text.replace(/&/g, 'アンド').replace(/=/g, 'イコール');
+      return `https://cache-a.oddcast.com/tts/genC.php?EID=3&LID=12&VID=${vid}&TXT=${encodeURIComponent(sanitized)}&EXT=mp3&FNAME=&ACC=15679&SceneID=2646118&HTTP_ERR=`;
+    }
+
+
+    /**
+     * テキストを文ごとに分割する（。！？で区切る）
+     * @param {string} text - 入力テキスト
+     * @returns {string[]} - 文ごとの配列
+     */
+    function splitTextBySentence(text) {
+      // 正規表現で文末（。！？）ごとに分割
+      const sentences = text.match(/[^。！？\r\n]*[。！？]?/g) || [];
+      return sentences.map(s => s.trim()).filter(Boolean);
+    }
+
+
+    /**
+     * 指定URLからMP3ファイル（Blob）を取得する
+     * @param {string} url - MP3ファイルのURL
+     * @returns {Promise<Blob>} - 取得したMP3のBlob
+     */
+    async function fetchMP3Blob(url) {
+      const res = await fetch(url, { mode: 'cors' });
+      if (!res.ok) throw new Error("音声ファイル取得に失敗");
+      return await res.blob();
+    }
+
+
+
+
+/**
+ * セグメントUIのみを即時描画（音声は再生成時のみ取得）
+ * @param {Array<{text: string, vid: string}>} segmentsData
+ */
+function renderSegmentsUI(segmentsData) {
+  segmentsAudioList.innerHTML = '';
+  
+  // Changedマトリックスを初期化（初回表示時や新規生成時）
+  if (window.Changed.length === 0) {
+    window.Changed = [];
+    for (let i = 0; i < segmentsData.length; i++) {
+      window.Changed.push({
+        text: segmentsData[i].text,
+        vid: segmentsData[i].vid,
+        ttsboxId: segmentsData[i].ttsboxId || generateHybridKey()
+      });
+    }
+  }
+  
+  // Poolの保存は各操作関数内で行うため、ここでは保存しない
+  // TextMidChangeの行数をsegmentsDataに合わせて調整
+  while (TextMidChange.length < segmentsData.length) TextMidChange.push([]);
+  while (TextMidChange.length > segmentsData.length) TextMidChange.pop();
+  // 既存行は上書きしない。空行のみ初期化。
+  for (let i = 0; i < segmentsData.length; i++) {
+    if (!TextMidChange[i] || TextMidChange[i].length === 0) {
+      TextMidChange[i] = [segmentsData[i].text, '', '', '', '', '', '', '', '', ''];
+    }
+  }
+  if (window.updateDebugMenu && document.getElementById('debugMenuToggle')?.checked) window.updateDebugMenu();
+  segmentsData.forEach((seg, i) => {
+    // ttsboxラッパーdiv
+    const ttsbox = document.createElement('div');
+    ttsbox.className = 'ttsbox';
+    ttsbox.dataset.voice = seg.vid || '';
+    ttsbox.dataset.selected = seg.selected === true ? 'true' : 'false';
+    ttsbox.dataset.visible = seg.visible === false ? 'false' : 'true';
+    ttsbox.dataset.column = i; // 列番号をdata-column属性で付与
+    
+    // 各ttsboxに一意IDを付与（鍵システム）
+    if (!seg.ttsboxId) {
+      seg.ttsboxId = generateHybridKey();
+    }
+    ttsbox.dataset.ttsboxId = seg.ttsboxId;
+
+    // テキストエリア
+    const textarea = document.createElement('textarea');
+    textarea.rows = 2;
+    textarea.value = seg.text;
+    textarea.dataset.index = i;
+    
+    // 入力中は変更フラグのみ、フォーカスが外れた時に再生成
+    textarea.oninput = () => {
+      seg.text = textarea.value.trim();
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+    };
+    textarea.onblur = async () => {
+      // テキスト変更があった場合のみ再生成
+      if (!regenerateBtn.disabled) {
+        // TextMidChangeもここで更新（0列目は常に最新テキスト）
+        seg.text = textarea.value.trim();
+        if (!TextMidChange[i]) TextMidChange[i] = [];
+        
+        if (currentHistoryIndex === 0) {
+          // 最新履歴から編集した場合は通常の処理
+          if (TextMidChange[i][0] !== seg.text) {
+            TextMidChange[i].unshift(seg.text);
+          } else {
+            TextMidChange[i][0] = seg.text;
+          }
+        } else {
+          // 非最新履歴から編集した場合は0番目を上書き
+          TextMidChange[i][0] = seg.text;
+        }
+        
+        // 0列目以外の重複を除去
+        for (let k = 1; k < TextMidChange[i].length; k++) {
+          if (TextMidChange[i][k] === seg.text) {
+            TextMidChange[i].splice(k, 1);
+            k--;
+          }
+        }
+        if (TextMidChange[i].length > 10) TextMidChange[i].length = 10;
+        
+        // 現在の履歴インデックスをリセット
+        currentHistoryIndex = 0;
+        
+        if (window.updateDebugMenu && document.getElementById('debugMenuToggle')?.checked) window.updateDebugMenu();
+        
+        // 編集状態を診断してdata-editedを更新
+        diagnoseAndUpdateEditedState(ttsbox, i);
+        
+        // 個別編集時は統合音声の再生成は行わず、再生成ボタンで対応
+        // await generateAudioFromSegments(segmentsData);
+        // regenerateBtn.disabled = true;
+        // updateChangeNotice();
+      }
+    };
+
+    // ボイスセレクトボックス
+    const voiceSelect = defaultVoiceSelect.cloneNode(true);
+    voiceSelect.removeAttribute('id');
+    voiceSelect.title = '音声の種類を選択';
+    voiceSelect.value = seg.vid;
+    voiceSelect.onchange = async () => {
+      console.log(`Voice changed from ${seg.vid} to ${voiceSelect.value} for segment index ${i}`);
+      seg.vid = voiceSelect.value;
+      // ttsboxのdata-voiceも更新
+      ttsbox.dataset.voice = voiceSelect.value;
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      
+      console.log('About to call updateVoiceFilterOptions() after voice change');
+      // 音声変更時に即座にフィルタオプションを更新
+      updateVoiceFilterOptions();
+      applyVoiceFilter();
+      console.log('updateVoiceFilterOptions() and applyVoiceFilter() completed');
+      
+      // 編集状態を診断してdata-editedを更新
+      diagnoseAndUpdateEditedState(ttsbox, i);
+      
+      if (window.updateDebugMenu && document.getElementById('debugMenuToggle')?.checked) window.updateDebugMenu();
+    };
+
+    // 再生ボタン（UIのみ、無効化）
+    const playButton = document.createElement('button');
+    playButton.textContent = '🔊 再生';
+    playButton.title = 'このセグメントの音声を再生';
+    playButton.disabled = true;
+
+    // 現在の履歴インデックスを追跡
+    let currentHistoryIndex = 0;
+
+    // 戻すボタン（TextMidChangeから履歴を呼び戻す）
+    const restoreButton = document.createElement('button');
+    restoreButton.textContent = '↺';
+    restoreButton.title = 'テキスト履歴から戻す';
+    
+    // ボタンの状態を更新する関数
+    const updateRestoreButtonState = () => {
+      const canUndo = TextMidChange[i] && TextMidChange[i].length > 1 && 
+                     currentHistoryIndex + 1 < TextMidChange[i].length && 
+                     currentHistoryIndex + 1 < 10 && 
+                     TextMidChange[i][currentHistoryIndex + 1] && 
+                     TextMidChange[i][currentHistoryIndex + 1] !== '' &&
+                     TextMidChange[i][currentHistoryIndex + 1] !== textarea.value;
+      
+      if (canUndo) {
+        restoreButton.style.opacity = '1';
+        restoreButton.disabled = false;
+      } else {
+        restoreButton.style.opacity = '0.3';
+        restoreButton.disabled = true;
+      }
+    };
+    
+    restoreButton.onclick = () => {
+      if (restoreButton.disabled) return;
+      
+      const nextIndex = currentHistoryIndex + 1;
+      const previousText = TextMidChange[i][nextIndex];
+      textarea.value = previousText;
+      seg.text = previousText;
+      currentHistoryIndex = nextIndex;
+      
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      updateRestoreButtonState();
+      updateRedoButtonState();
+      
+      // 編集状態を診断してdata-editedを更新
+      diagnoseAndUpdateEditedState(ttsbox, i);
+    };
+
+    // やり直しボタン（TextMidChangeから進んだ履歴を呼び戻す）
+    const redoButton = document.createElement('button');
+    redoButton.textContent = '↻';
+    redoButton.title = 'テキスト履歴をやり直す';
+    
+    const updateRedoButtonState = () => {
+      const canRedo = TextMidChange[i] && currentHistoryIndex > 0 && 
+                     TextMidChange[i][currentHistoryIndex - 1] && 
+                     TextMidChange[i][currentHistoryIndex - 1] !== '' &&
+                     TextMidChange[i][currentHistoryIndex - 1] !== textarea.value;
+      
+      if (canRedo) {
+        redoButton.style.opacity = '1';
+        redoButton.disabled = false;
+      } else {
+        redoButton.style.opacity = '0.3';
+        redoButton.disabled = true;
+      }
+    };
+    
+    redoButton.onclick = () => {
+      if (redoButton.disabled) return;
+      
+      const nextIndex = currentHistoryIndex - 1;
+      const nextText = TextMidChange[i][nextIndex];
+      textarea.value = nextText;
+      seg.text = nextText;
+      currentHistoryIndex = nextIndex;
+      
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      updateRestoreButtonState();
+      updateRedoButtonState();
+      
+      // 編集状態を診断してdata-editedを更新
+      diagnoseAndUpdateEditedState(ttsbox, i);
+    };
+    
+    // 初期状態を設定
+    updateRestoreButtonState();
+    updateRedoButtonState();
+
+    // ゴミ箱ボタン
+    const deleteButton = document.createElement('button');
+    deleteButton.textContent = '🗑️';
+    deleteButton.title = 'このセグメントを削除';
+    deleteButton.onclick = () => {
+      // 削除される要素の次の要素に鍵を与える
+      const nextSibling = ttsbox.nextElementSibling;
+      let nextKey = null;
+      if (nextSibling && nextSibling.dataset.ttsboxId) {
+        nextKey = nextSibling.dataset.ttsboxId;
+      }
+      
+      // DPoolに削除されるセグメントを保存
+      const deletedSegment = {
+        segment: { ...segmentsData[i] },
+        index: i,
+        history: window.TextMidChange[i] ? [...window.TextMidChange[i]] : [segmentsData[i].text],
+        nextKey: nextKey // 復元時の目印となる鍵
+      };
+      DPool.push(deletedSegment);
+      
+      // DPoolの最大サイズを20に制限
+      if (DPool.length > 20) {
+        DPool.shift();
+      }
+      
+      segmentsData.splice(i, 1);
+      window.deleteTMCrow(i);
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      renderSegmentsUI(segmentsData);
+      updateVoiceFilterOptions();
+      updateGlobalRedoButton(); // DPoolボタンの状態を更新
+      if (window.updateDebugMenu && document.getElementById('debugMenuToggle')?.checked) window.updateDebugMenu();
+    };
+
+    // 上下追加ボタン（グローバル関数を使用）
+    const insertAboveButton = document.createElement('button');
+    insertAboveButton.textContent = '＋上';
+    insertAboveButton.title = 'この上に新しいセグメントを追加';
+    insertAboveButton.onclick = () => {
+      const newSegments = segmentsData.slice(0, i)
+        .concat([{ text: 'テキストを挿入。', vid: seg.vid, ttsboxId: generateHybridKey() }])
+        .concat(segmentsData.slice(i));
+      window.insertTMCrow(i, 'テキストを挿入。');
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      renderSegmentsUI(newSegments);
+      updateVoiceFilterOptions();
+      if (window.updateDebugMenu && document.getElementById('debugMenuToggle')?.checked) window.updateDebugMenu();
+      currentSegments = newSegments;
+    };
+    const insertBelowButton = document.createElement('button');
+    insertBelowButton.textContent = '＋下';
+    insertBelowButton.title = 'この下に新しいセグメントを追加';
+    insertBelowButton.onclick = () => {
+      const newSegments = segmentsData.slice(0, i + 1)
+        .concat([{ text: 'テキストを挿入。', vid: seg.vid, ttsboxId: generateHybridKey() }])
+        .concat(segmentsData.slice(i + 1));
+      window.insertTMCrow(i + 1, 'テキストを挿入。');
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      renderSegmentsUI(newSegments);
+      updateVoiceFilterOptions();
+      if (window.updateDebugMenu && document.getElementById('debugMenuToggle')?.checked) window.updateDebugMenu();
+      currentSegments = newSegments;
+    };
+
+    // コントロールボックス
+    const controls = document.createElement('div');
+    controls.className = 'segment-controls';
+    controls.append(playButton, restoreButton, redoButton, voiceSelect, deleteButton, insertAboveButton, insertBelowButton);
+
+    // ttsboxに要素をまとめて追加
+    ttsbox.append(textarea, controls);
+    segmentsAudioList.appendChild(ttsbox);
+  });
+  
+  // 初期表示時に全セグメントの編集状態を診断
+  const allTtsboxes = segmentsAudioList.querySelectorAll('.ttsbox');
+  allTtsboxes.forEach((ttsbox, index) => {
+    diagnoseAndUpdateEditedState(ttsbox, index);
+  });
+  
+  updateVoiceFilterOptions();
+}
+
+/**
+ * セグメントごとに音声を生成し、UIに反映する
+ * @param {Array<{text: string, vid: string}>} segmentsData - 各セグメントのテキストと声ID
+ */
+async function generateAudioFromSegments(segmentsData) {
+  // --- 1. UI初期化 ---
+  resultDiv.textContent = '生成中...';
+  if (finalBlobURL) {
+    URL.revokeObjectURL(finalBlobURL);
+    finalBlobURL = null;
+  }
+  downloadBtn.disabled = true;
+  // --- 2. 各セグメントの音声を先に全て取得 ---
+  const mergedBlobs = [];
+  const segmentBlobs = [];
+  let ttsCount = 0;
+  // 5～10回ごとに7～10秒休止
+  let ttsLimit = Math.floor(Math.random() * 6) + 5; // 5～10
+  for (let i = 0; i < segmentsData.length; i++) {
+    const seg = segmentsData[i];
+    const url = generateTTSURL(seg.vid, seg.text);
+    try {
+      const blob = await fetchMP3Blob(url);
+      segmentBlobs.push(blob);
+      mergedBlobs.push(blob);
+    } catch {
+      segmentBlobs.push(null);
+      mergedBlobs.push(new Blob());
+    }
+    ttsCount++;
+    if (ttsCount >= ttsLimit && i < segmentsData.length - 1) {
+      // 7～10秒休止
+      const sleepMs = (Math.floor(Math.random() * 4) + 7) * 1000; // 7～10秒
+      await new Promise(res => setTimeout(res, sleepMs));
+      ttsCount = 0;
+      ttsLimit = Math.floor(Math.random() * 6) + 5; // 5～10
+    }
+  }
+  // --- 3. UI生成（音声取得後なので再生ボタンは必ず動く） ---
+  segmentsAudioList.innerHTML = '';
+  
+  // Changedマトリックスを初期化（初回表示時や新規生成時）
+  if (window.Changed.length === 0) {
+    window.Changed = [];
+    for (let i = 0; i < segmentsData.length; i++) {
+      window.Changed.push({
+        text: segmentsData[i].text,
+        vid: segmentsData[i].vid,
+        ttsboxId: segmentsData[i].ttsboxId || generateHybridKey()
+      });
+    }
+  }
+  
+  // TextMidChangeの行数をsegmentsDataに合わせて調整
+  while (TextMidChange.length < segmentsData.length) TextMidChange.push([]);
+  while (TextMidChange.length > segmentsData.length) TextMidChange.pop();
+  // 初回または行挿入時は10列目まで埋める
+  for (let i = 0; i < segmentsData.length; i++) {
+    if (!TextMidChange[i] || TextMidChange[i].length === 0) {
+      TextMidChange[i] = [segmentsData[i].text, '', '', '', '', '', '', '', '', ''];
+    }
+  }
+  segmentsData.forEach((seg, i) => {
+    // ttsboxラッパーdiv
+    const ttsbox = document.createElement('div');
+    ttsbox.className = 'ttsbox';
+    ttsbox.dataset.voice = seg.vid || '';
+    ttsbox.dataset.selected = seg.selected === true ? 'true' : 'false';
+    ttsbox.dataset.visible = seg.visible === false ? 'false' : 'true';
+    
+    // 各ttsboxに一意IDを付与（鍵システム）
+    if (!seg.ttsboxId) {
+      seg.ttsboxId = generateHybridKey();
+    }
+    ttsbox.dataset.ttsboxId = seg.ttsboxId;
+
+    const textarea = document.createElement('textarea');
+    textarea.rows = 2;
+    textarea.value = seg.text;
+    textarea.dataset.index = i;
+    
+    let currentBlob = segmentBlobs[i];
+    // --- TextMidChange: mp3更新時に履歴を保存 ---
+    if (!TextMidChange[i]) TextMidChange[i] = [];
+    // textareaの値（最新テキスト）を履歴の先頭に追加（重複は追加しない）
+    const newText = seg.text;
+    if (TextMidChange[i][0] !== newText) {
+      TextMidChange[i].unshift(newText);
+      if (TextMidChange[i].length > 10) TextMidChange[i].length = 10;
+      if (window.updateDebugMenu && document.getElementById('debugMenuToggle')?.checked) window.updateDebugMenu();
+    }
+    const controls = document.createElement('div');
+    controls.className = 'segment-controls';
+    const playButton = document.createElement('button');
+    playButton.textContent = '🔊 再生';
+    playButton.title = 'このセグメントの音声を再生';
+    playButton.disabled = !currentBlob;
+    playButton.onclick = () => {
+      if (currentBlob) new Audio(URL.createObjectURL(currentBlob)).play();
+    };
+    const voiceSelect = defaultVoiceSelect.cloneNode(true);
+    voiceSelect.removeAttribute('id');
+    voiceSelect.title = '音声の種類を選択';
+    voiceSelect.value = seg.vid;
+    voiceSelect.onchange = async () => {
+      seg.vid = voiceSelect.value;
+      // ttsboxのdata-voiceも更新
+      ttsbox.dataset.voice = voiceSelect.value;
+      regenerateBtn.disabled = false;
+      updateChangeNotice(); // 声変更時にフィルタ選択肢も更新
+      updateVoiceFilterOptions();
+      applyVoiceFilter();
+      try {
+        playButton.disabled = true;
+        playButton.textContent = '生成中...';
+        currentBlob = await fetchMP3Blob(generateTTSURL(voiceSelect.value, seg.text));
+        playButton.textContent = '🔊 再生';
+        playButton.disabled = false;
+        
+        // MP3再生成完了後に編集状態を診断
+        diagnoseAndUpdateEditedState(ttsbox, i);
+        
+        // MP3再生成完了後にフィルタ選択肢を更新
+        updateVoiceFilterOptions();
+        applyVoiceFilter();
+      } catch {
+        playButton.textContent = 'エラー';
+        playButton.disabled = true;
+      }
+    };
+    // 入力中は変更フラグのみ、フォーカスが外れた時に再生成
+    textarea.oninput = () => {
+      seg.text = textarea.value.trim();
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+    };
+    textarea.onblur = async () => {
+      if (!regenerateBtn.disabled) {
+        // TextMidChangeもここで更新（0列目は常に最新テキスト）
+        seg.text = textarea.value.trim();
+        if (!TextMidChange[i]) TextMidChange[i] = [];
+        
+        if (currentHistoryIndex === 0) {
+          // 最新履歴から編集した場合は通常の処理
+          if (TextMidChange[i][0] !== seg.text) {
+            TextMidChange[i].unshift(seg.text);
+          } else {
+            TextMidChange[i][0] = seg.text;
+          }
+        } else {
+          // 非最新履歴から編集した場合は0番目を上書き
+          TextMidChange[i][0] = seg.text;
+        }
+        
+        // 0列目以外の重複を除去
+        for (let k = 1; k < TextMidChange[i].length; k++) {
+          if (TextMidChange[i][k] === seg.text) {
+            TextMidChange[i].splice(k, 1);
+            k--;
+          }
+        }
+        if (TextMidChange[i].length > 10) TextMidChange[i].length = 10;
+        
+        // 現在の履歴インデックスをリセット
+        currentHistoryIndex = 0;
+        
+        if (window.updateDebugMenu && document.getElementById('debugMenuToggle')?.checked) window.updateDebugMenu();
+        updateRestoreButtonState();
+        updateRedoButtonState();
+        try {
+          playButton.disabled = true;
+          playButton.textContent = '生成中...';
+          currentBlob = await fetchMP3Blob(generateTTSURL(voiceSelect.value, seg.text));
+          playButton.textContent = '🔊 再生';
+          playButton.disabled = false;
+          
+          // MP3再生成完了後に編集状態を診断
+          diagnoseAndUpdateEditedState(ttsbox, i);
+          
+          // MP3再生成完了後にフィルタ選択肢を更新
+          updateVoiceFilterOptions();
+          applyVoiceFilter();
+        } catch {
+          playButton.textContent = 'エラー';
+          playButton.disabled = true;
+        }
+        // 個別編集時は統合音声の再生成は行わず、再生成ボタンで対応
+        // regenerateBtn.disabled = true;
+        // updateChangeNotice();
+      }
+    };
+    
+    // 現在の履歴インデックスを追跡
+    let currentHistoryIndex = 0;
+    
+    // 戻すボタン（TextMidChangeから履歴を呼び戻す）
+    const restoreButton = document.createElement('button');
+    restoreButton.textContent = '↺';
+    restoreButton.title = 'テキスト履歴から戻す';
+    
+    // ボタンの状態を更新する関数
+    const updateRestoreButtonState = () => {
+      const canUndo = TextMidChange[i] && TextMidChange[i].length > 1 && 
+                     currentHistoryIndex + 1 < TextMidChange[i].length && 
+                     currentHistoryIndex + 1 < 10 && 
+                     TextMidChange[i][currentHistoryIndex + 1] && 
+                     TextMidChange[i][currentHistoryIndex + 1] !== '' &&
+                     TextMidChange[i][currentHistoryIndex + 1] !== textarea.value;
+      
+      if (canUndo) {
+        restoreButton.style.opacity = '1';
+        restoreButton.disabled = false;
+      } else {
+        restoreButton.style.opacity = '0.3';
+        restoreButton.disabled = true;
+      }
+    };
+    
+    restoreButton.onclick = async () => {
+      if (restoreButton.disabled) return;
+      
+      const nextIndex = currentHistoryIndex + 1;
+      const previousText = TextMidChange[i][nextIndex];
+      textarea.value = previousText;
+      seg.text = previousText;
+      currentHistoryIndex = nextIndex;
+      
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      updateRestoreButtonState();
+      updateRedoButtonState();
+      
+      // 音声も再生成
+      try {
+        playButton.disabled = true;
+        playButton.textContent = '生成中...';
+        currentBlob = await fetchMP3Blob(generateTTSURL(voiceSelect.value, seg.text));
+        playButton.textContent = '🔊 再生';
+        playButton.disabled = false;
+      } catch {
+        playButton.textContent = 'エラー';
+        playButton.disabled = true;
+      }
+    };
+
+    // やり直しボタン（TextMidChangeから進んだ履歴を呼び戻す）
+    const redoButton = document.createElement('button');
+    redoButton.textContent = '↻';
+    redoButton.title = 'テキスト履歴をやり直す';
+    
+    const updateRedoButtonState = () => {
+      const canRedo = TextMidChange[i] && currentHistoryIndex > 0 && 
+                     TextMidChange[i][currentHistoryIndex - 1] && 
+                     TextMidChange[i][currentHistoryIndex - 1] !== '' &&
+                     TextMidChange[i][currentHistoryIndex - 1] !== textarea.value;
+      
+      if (canRedo) {
+        redoButton.style.opacity = '1';
+        redoButton.disabled = false;
+      } else {
+        redoButton.style.opacity = '0.3';
+        redoButton.disabled = true;
+      }
+    };
+    
+    redoButton.onclick = async () => {
+      if (redoButton.disabled) return;
+      
+      const nextIndex = currentHistoryIndex - 1;
+      const nextText = TextMidChange[i][nextIndex];
+      textarea.value = nextText;
+      seg.text = nextText;
+      currentHistoryIndex = nextIndex;
+      
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      updateRestoreButtonState();
+      updateRedoButtonState();
+      
+      // 音声も再生成
+      try {
+        playButton.disabled = true;
+        playButton.textContent = '生成中...';
+        currentBlob = await fetchMP3Blob(generateTTSURL(voiceSelect.value, seg.text));
+        playButton.textContent = '🔊 再生';
+        playButton.disabled = false;
+      } catch {
+        playButton.textContent = 'エラー';
+        playButton.disabled = true;
+      }
+    };
+    
+    // 初期状態を設定
+    updateRestoreButtonState();
+    updateRedoButtonState();
+    
+    const deleteButton = document.createElement('button');
+    deleteButton.textContent = '🗑️';
+    deleteButton.title = 'このセグメントを削除';
+    deleteButton.onclick = async () => {
+      // 削除される要素の次の要素に鍵を与える
+      const nextSibling = ttsbox.nextElementSibling;
+      let nextKey = null;
+      if (nextSibling && nextSibling.dataset.ttsboxId) {
+        nextKey = nextSibling.dataset.ttsboxId;
+      }
+      
+      // DPoolに削除されるセグメントを保存
+      const deletedSegment = {
+        segment: { ...segmentsData[i] },
+        index: i,
+        history: window.TextMidChange[i] ? [...window.TextMidChange[i]] : [segmentsData[i].text],
+        nextKey: nextKey // 復元時の目印となる鍵
+      };
+      DPool.push(deletedSegment);
+      
+      // DPoolの最大サイズを20に制限
+      if (DPool.length > 20) {
+        DPool.shift();
+      }
+      
+      segmentsData.splice(i, 1);
+      window.deleteTMCrow(i);
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      renderSegmentsUI(segmentsData);
+      updateVoiceFilterOptions(); // 削除時も更新
+      updateGlobalRedoButton(); // DPoolボタンの状態を更新
+    };
+    const insertAboveButton = document.createElement('button');
+    insertAboveButton.textContent = '＋上';
+    insertAboveButton.title = 'この上に新しいセグメントを追加';
+    insertAboveButton.onclick = async () => {
+      segmentsData.splice(i, 0, { text: 'テキストを挿入。', vid: seg.vid, ttsboxId: generateHybridKey() });
+      window.insertTMCrow(i, 'テキストを挿入。');
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      renderSegmentsUI(segmentsData);
+      updateVoiceFilterOptions(); // 挿入時も更新
+    };
+    const insertBelowButton = document.createElement('button');
+    insertBelowButton.textContent = '＋下';
+    insertBelowButton.title = 'この下に新しいセグメントを追加';
+    insertBelowButton.onclick = async () => {
+      segmentsData.splice(i + 1, 0, { text: 'テキストを挿入。', vid: seg.vid, ttsboxId: generateHybridKey() });
+      window.insertTMCrow(i + 1, 'テキストを挿入。');
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      renderSegmentsUI(segmentsData);
+      updateVoiceFilterOptions(); // 挿入時も更新
+    };
+    controls.append(playButton, restoreButton, redoButton, voiceSelect, deleteButton, insertAboveButton, insertBelowButton);
+    // ttsboxにまとめて追加
+    ttsbox.append(textarea, controls);
+    segmentsAudioList.appendChild(ttsbox);
+  });
+  
+  // 初期表示時に全セグメントの編集状態を診断
+  const allTtsboxes = segmentsAudioList.querySelectorAll('.ttsbox');
+  allTtsboxes.forEach((ttsbox, index) => {
+    diagnoseAndUpdateEditedState(ttsbox, index);
+  });
+  
+  updateVoiceFilterOptions(); // UI生成後にも必ず呼ぶ
+  // --- 4. 統合音声の生成・UI反映 ---
+  finalBlobURL = URL.createObjectURL(new Blob(mergedBlobs, { type: 'audio/mp3' }));
+  resultDiv.textContent = '';
+  const audio = document.createElement('audio');
+  audio.controls = true;
+  audio.src = finalBlobURL;
+  resultDiv.appendChild(audio);
+  downloadBtn.disabled = false;
+  regenerateBtn.disabled = true;
+  updateChangeNotice();
+}
+
+
+
+    // セグメントの編集状態を診断してdata-editedを更新する関数
+    function diagnoseAndUpdateEditedState(ttsbox, segmentIndex) {
+        const textarea = ttsbox.querySelector('textarea');
+        if (!textarea || !window.Changed || segmentIndex >= window.Changed.length) {
+            return;
+        }
+        
+        const currentText = textarea.value.trim();
+        const changedText = window.Changed[segmentIndex]?.text || '';
+        const isEdited = currentText !== changedText;
+        
+        ttsbox.dataset.edited = isEdited ? 'true' : 'false';
+    }
+
+    // ====== MP3生成ボタン ======
+    generateBtn.addEventListener('click', async () => {
+      const rawText = textInput.value.trim();
+      const defaultVid = defaultVoiceSelect.value;
+      if (!rawText) {
+        alert("テキストを入力してください");
+        return;
+      }
+      
+      // 履歴リセットの警告
+      if (window.TextMidChange.length > 0 || window.Changed.length > 0) {
+        const confirmReset = confirm("新しいMP3を生成すると、既存の編集履歴がリセットされます。\n続行しますか？");
+        if (!confirmReset) {
+          return;
+        }
+      }
+      
+      // 履歴をリセット
+      window.TextMidChange = [];
+      window.Changed = [];
+      
+      // テキストを文ごとに分割し、セグメント配列を作成（複合鍵も付与）
+      const segments = splitTextBySentence(rawText).map(txt => ({ 
+        text: txt, 
+        vid: defaultVid,
+        ttsboxId: generateHybridKey()
+      }));
+      currentSegments = segments;
+      // まずUIのみ即時描画せず、初回から音声生成まで行う
+      await generateAudioFromSegments(currentSegments);
+      regenerateBtn.disabled = true;
+      updateChangeNotice();
+    });
+
+    // ====== 再生成ボタン ======
+    regenerateBtn.addEventListener('click', async () => {
+      // currentSegmentsも同期更新
+      const allTtsboxes = document.querySelectorAll('.ttsbox');
+      allTtsboxes.forEach((ttsbox, index) => {
+        const textarea = ttsbox.querySelector('textarea');
+        const voiceSelect = ttsbox.querySelector('select');
+        if (textarea && voiceSelect && currentSegments[index]) {
+          currentSegments[index].text = textarea.value.trim();
+          currentSegments[index].vid = voiceSelect.value;
+        }
+      });
+      
+      await generateAudioFromSegments(currentSegments);
+      regenerateBtn.disabled = true;
+      updateChangeNotice();
+      if (window.updateDebugMenu && document.getElementById('debugMenuToggle')?.checked) window.updateDebugMenu();
+    });
+
+    // ====== ダウンロードボタン ======
+    downloadBtn.addEventListener('click', () => {
+      if (!finalBlobURL) return;
+      const a = document.createElement('a');
+      a.href = finalBlobURL;
+      a.download = 'merged_audio.mp3';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    });
+
+    // 初期表示時はセグメントUIを描画しない（mp3生成時のみ生成）
+
+    // 右下⚙ボタンで右サイドバー開閉
+    settingsBtn.addEventListener('click', () => {
+      rightSidebar.classList.toggle('closed');
+    });
+
+    // 統合Redoボタンの処理
+    globalRedoBtn.addEventListener('click', () => {
+      // DPoolからセグメントを復元
+      if (DPool.length === 0) {
+        return; // 復元するものがない場合は何もしない
+      }
+      
+      const deletedItem = DPool.pop(); // 最後に削除されたアイテムを取得
+      let insertIndex = 0;
+      
+      // 鍵を使って復元位置を特定
+      if (deletedItem.nextKey) {
+        // 次の要素の鍵を探す
+        const targetIndex = currentSegments.findIndex(seg => seg.ttsboxId === deletedItem.nextKey);
+        if (targetIndex !== -1) {
+          insertIndex = targetIndex;
+        } else {
+          // 鍵が見つからない場合は元のインデックスを使用
+          insertIndex = Math.min(deletedItem.index, currentSegments.length);
+        }
+      } else {
+        // 最後の要素だった場合は末尾に追加
+        insertIndex = currentSegments.length;
+      }
+      
+      // セグメントを復元
+      currentSegments.splice(insertIndex, 0, deletedItem.segment);
+      
+      // 履歴も復元
+      window.insertTMCrow(insertIndex, deletedItem.segment.text);
+      if (deletedItem.history && deletedItem.history.length > 0) {
+        window.TextMidChange[insertIndex] = [...deletedItem.history];
+      }
+      
+      regenerateBtn.disabled = false;
+      updateChangeNotice();
+      renderSegmentsUI(currentSegments);
+      updateVoiceFilterOptions();
+      updateGlobalRedoButton(); // DPoolボタンの状態を更新
+      if (window.updateDebugMenu && document.getElementById('debugMenuToggle')?.checked) window.updateDebugMenu();
+    });
+
+    // タブ切り替え
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        tabContents.forEach(tc => tc.style.display = 'none');
+        const target = document.getElementById(btn.dataset.tab);
+        if (target) target.style.display = 'block';
+      });
+    });
+
+
+    // ====== 説明タブ内容 ======
+    const descTab = document.getElementById('tab-desc');
+    descTab.innerHTML = `
+      <h2>KUSAIKOID ver.beta4.1</h2>
+      <ul style="margin-left:1.2em;">
+        <li>テキストを文ごとに分割し、各文ごとに声や内容を編集できます。</li>
+        <li>「＋上」「＋下」で文を追加、「🗑️」で削除できます。</li>
+        <li>編集後は「編集後のMP3を再生成」ボタンで音声を再取得してください。</li>
+        <li>サイドバーは≡ボタン、右下⚙ボタンで開閉できます。</li>
+      </ul>
+      <div style="margin-top:1.2em; color:#555;">
+        <b>今後の予定:</b> カスタムモデル登録、音声合成の詳細設定などをここに追加可能です。<br>
+        UI/UXの追加機能やヘルプもこのエリアに配置できます。
+      </div>
+    `;
+
+    // フィルタタブにセレクトボックスを追加
+    const filterTab = document.getElementById('tab-filter');
+    // 音声名リスト（voiceSelectから取得）
+    const voiceSelectOptions = Array.from(defaultVoiceSelect.options).map(opt => ({ value: opt.value, label: opt.textContent }));
+
+    // セレクトボックス生成
+    const filterLabel = document.createElement('label');
+    filterLabel.textContent = '音声フィルタ:';
+    filterLabel.style.marginRight = '0.5em';
+    const filterSelect = document.createElement('select');
+    filterSelect.style.minWidth = '160px';
+    filterLabel.appendChild(filterSelect);
+    filterTab.appendChild(filterLabel);
+
+    // 編集状態フィルタ追加
+    const editStateDiv = document.createElement('div');
+    editStateDiv.style.marginTop = '1em';
+    editStateDiv.style.marginBottom = '0.7em';
+    const editStateLabel = document.createElement('label');
+    editStateLabel.textContent = '編集状態:';
+    editStateLabel.style.marginRight = '0.5em';
+    const editStateSelect = document.createElement('select');
+    editStateSelect.style.minWidth = '120px';
+    [
+      { value: '', label: 'すべて' },
+      { value: 'false', label: '未編集' },
+      { value: 'true', label: '編集済み' }
+    ].forEach(opt => {
+      const o = document.createElement('option');
+      o.value = opt.value;
+      o.textContent = opt.label;
+      editStateSelect.appendChild(o);
+    });
+    editStateLabel.appendChild(editStateSelect);
+    editStateDiv.appendChild(editStateLabel);
+    filterTab.appendChild(editStateDiv);
+
+    // 検索ボックス追加
+    const searchDiv = document.createElement('div');
+    searchDiv.style.marginTop = '1em';
+    const searchLabel = document.createElement('label');
+    searchLabel.textContent = 'テキスト検索:';
+    searchLabel.style.marginRight = '0.5em';
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = 'キーワードを入力';
+    searchInput.style.minWidth = '160px';
+    searchDiv.appendChild(searchLabel);
+    searchDiv.appendChild(searchInput);
+    filterTab.appendChild(searchDiv);
+
+    // 使用中のvoiceのみフィルタセレクトに表示する
+    function updateVoiceFilterOptions() {
+      // 現在のセグメントで使われているvoiceを集計
+      const usedVoices = new Set();
+      const segDivs = segmentsAudioList.querySelectorAll('.ttsbox');
+      console.log('updateVoiceFilterOptions: found', segDivs.length, 'ttsboxes');
+      segDivs.forEach((div, index) => {
+        // selectボックスの実際の値を参照（前バージョンと同様）
+        const select = div.querySelector('select');
+        const voice = select ? select.value : '';
+        console.log(`Segment ${index}: select.value="${voice}"`);
+        if (voice) usedVoices.add(voice);
+      });
+      console.log('Used voices:', Array.from(usedVoices));
+      console.log('Available voiceSelectOptions:', voiceSelectOptions);
+      console.log('Current filter options before update:', Array.from(filterSelect.options).map(o => ({ value: o.value, text: o.textContent })));
+      
+      // 選択肢を再構築
+      const prev = filterSelect.value;
+      filterSelect.innerHTML = '';
+      const optAll = document.createElement('option');
+      optAll.value = '';
+      optAll.textContent = 'すべて';
+      filterSelect.appendChild(optAll);
+      
+      let addedCount = 0;
+      voiceSelectOptions.forEach(opt => {
+        console.log(`Checking option: value="${opt.value}", label="${opt.label}", isUsed=${usedVoices.has(opt.value)}`);
+        if (usedVoices.has(opt.value)) {
+          const o = document.createElement('option');
+          o.value = opt.value;
+          o.textContent = opt.label;
+          filterSelect.appendChild(o);
+          addedCount++;
+          console.log(`Added filter option: ${opt.label} (${opt.value})`);
+        }
+      });
+      console.log(`Total filter options added: ${addedCount}`);
+      console.log('Filter options after update:', Array.from(filterSelect.options).map(o => ({ value: o.value, text: o.textContent })));
+      
+      // 直前の選択値が残っていれば維持
+      if ([...filterSelect.options].some(o => o.value === prev)) {
+        filterSelect.value = prev;
+      } else {
+        filterSelect.value = '';
+      }
+    }
+
+
+    // フィルタ処理本体（音声フィルタ＋編集状態＋テキスト検索）
+    function applyVoiceFilter() {
+      const voiceVal = filterSelect.value;
+      const searchVal = searchInput.value.trim();
+      const editStateVal = editStateSelect.value;
+      // ttsbox単位で処理
+      const segDivs = segmentsAudioList.querySelectorAll('.ttsbox');
+      segDivs.forEach(div => {
+        // selectボックスの実際の値を参照（前バージョンと同様）
+        const voiceSelect = div.querySelector('select');
+        const currentVoice = voiceSelect ? voiceSelect.value : '';
+        // data-edited属性を参照
+        const dataEdited = div.dataset.edited || 'false';
+        // テキストエリアの値
+        const textarea = div.querySelector('textarea');
+        const textVal = textarea ? textarea.value : '';
+        // 音声フィルタ
+        let visible = true;
+        if (voiceVal && currentVoice !== voiceVal) visible = false;
+        // 編集状態フィルタ（data-edited）
+        if (editStateVal === 'true' && dataEdited !== 'true') visible = false;
+        if (editStateVal === 'false' && dataEdited !== 'false') visible = false;
+        // テキスト検索フィルタ
+        if (searchVal && !textVal.includes(searchVal)) visible = false;
+        if (visible) {
+          div.style.display = '';
+          div.dataset.visible = 'true';
+        } else {
+          div.style.display = 'none';
+          div.dataset.visible = 'false';
+        }
+      });
+    }
+    filterSelect.addEventListener('change', applyVoiceFilter);
+    searchInput.addEventListener('input', applyVoiceFilter);
+    editStateSelect.addEventListener('change', applyVoiceFilter);
+
+    // セグメントUI再描画時にもフィルタ選択肢・フィルタを再適用
+    const _origRenderSegmentsUI = renderSegmentsUI;
+    renderSegmentsUI = function(segmentsData) {
+      _origRenderSegmentsUI(segmentsData);
+      updateVoiceFilterOptions();
+      applyVoiceFilter();
+    };
+
+    // MP3生成時にフィルタを「すべて」にリセット
+    const _origGenerateBtnHandler = generateBtn.onclick;
+    generateBtn.addEventListener('click', () => {
+      filterSelect.value = '';
+      updateVoiceFilterOptions();
+      applyVoiceFilter();
+    });
+  </script>
+<!-- ====== TextMidChangeのExcel風行操作グローバル関数 ====== -->
+<script>
+window.insertTMCrow = function(idx, fillText = '') {
+  // Poolには追加位置以降の行だけを記憶
+  window._debugPool = window.TextMidChange.slice(idx).map(row => Array.isArray(row) ? [...row] : []);
+  // 追加行をfillTextで埋める（0番目のみ、1〜9番目は空）
+  const newRow = [fillText, '', '', '', '', '', '', '', '', ''];
+  // TextMidChangeを再構築
+  const upper = window.TextMidChange.slice(0, idx);
+  const lower = window._debugPool;
+  window.TextMidChange.length = 0;
+  for (let i = 0; i < upper.length; i++) window.TextMidChange.push([...upper[i]]);
+  window.TextMidChange.push(newRow);
+  for (let i = 0; i < lower.length; i++) window.TextMidChange.push([...lower[i]]);
+  if (window.updateDebugMenu && document.getElementById('debugMenuToggle')?.checked) window.updateDebugMenu();
+};
+
+window.deleteTMCrow = function(idx) {
+  window._debugPool = window.TextMidChange.map(row => Array.isArray(row) ? [...row] : []);
+  const pool = window._debugPool;
+  let newTextMidChange = [];
+  const rowCount = pool.length;
+  for (let i = 0; i < rowCount - 1; i++) {
+    if (i < idx) {
+      newTextMidChange[i] = [...pool[i]];
+    } else {
+      newTextMidChange[i] = [...pool[i + 1]];
+    }
+  }
+  window.TextMidChange.length = 0;
+  for (let i = 0; i < newTextMidChange.length; i++) {
+    window.TextMidChange.push(newTextMidChange[i]);
+  }
+  if (window.updateDebugMenu && document.getElementById('debugMenuToggle')?.checked) window.updateDebugMenu();
+};
+</script>
+</body>
+</html>
